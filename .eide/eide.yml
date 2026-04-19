@@ -1,0 +1,124 @@
+version: "4.1"
+name: CH32V307-FreeRTOS
+type: RISC-V
+deviceName: null
+packDir: null
+srcDirs:
+  - bsp
+  - middlesware
+  - hal
+  - Core
+  - Debug
+  - FreeRTOS
+  - Ld
+  - Peripheral
+  - queue_test
+  - Startup
+  - System
+  - User
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: c11b6c86537287d0c2ead32b60a5c715
+targets:
+  obj:
+    cppPreprocessAttrs:
+      defineList: []
+      incList:
+        - Debug
+        - Core
+        - System
+        - User
+        - Peripheral/inc
+        - FreeRTOS
+        - FreeRTOS/include
+        - FreeRTOS/portable/Common
+        - FreeRTOS/portable/GCC/RISC-V
+        - FreeRTOS/portable/GCC/RISC-V/chip_specific_extensions/RV32I_PFIC_no_extensions
+        - FreeRTOS/portable/MemMang
+        - queue_test
+        - hal
+        - bsp/sht40
+        - bsp/usart_wifi_esp
+        - middlesware/Ring_buffer
+        - middlesware/DMA
+        - bsp/bsp_max_30102
+        - bsp/bsp_MLX_90614
+        - bsp_SIM800L
+        - middlesware/MAX_30102_algorithm
+        - User/app_task.h
+      libList: []
+    excludeList:
+      - FreeRTOS/portable/Common/mpu_wrappers.c
+      - Startup/startup_ch32v30x_D8.S
+    settings:
+      debugger: cortex-debug
+    toolchain: RISCV_GCC
+    toolchainConfigMap:
+      RISCV_GCC:
+        linkerScriptPath: Ld/Link.ld
+        options:
+          version: 2
+          afterBuildTasks: []
+          asm-compiler:
+            ASM_FLAGS: -Wl,-Bstatic
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            CXX_FLAGS: ""
+            C_FLAGS: -Wl,-Bstatic
+            language-c: gnu99
+            language-cpp: c++11
+            one-elf-section-per-data: true
+            one-elf-section-per-function: true
+            optimization: level-size
+            signed-char: true
+            warnings: all-warnings
+          global:
+            abi: ilp32
+            arch: rv32imac
+            code-model: medlow
+            misc-control:
+              - -msave-restore
+              - -fmessage-length=0
+              - -fno-common
+              - -Wunused
+              - -Wuninitialized
+            output-debug-info: enable
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            LD_FLAGS: -nostartfiles --specs=nano.specs --specs=nosys.specs
+            LIB_FLAGS: -lm
+            output-format: elf
+            remove-unused-input-sections: true
+    uploadConfigMap:
+      Custom:
+        bin: ""
+        commandLine: ""
+        eraseChipCommand: ""
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: "null"
+          vendor: "null"
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+      OpenOCD:
+        baseAddr: "0x08000000"
+        bin: ""
+        interface: ${workspaceFolder}/.eide/openocd
+        target: ${workspaceFolder}/.eide/openocd
+      pyOCD:
+        baseAddr: "0x08000000"
+        bin: ""
+        config: .eide/obj.pyocd.yaml
+        otherCmds: ""
+        speed: 4M
+        targetName: cortex_m
+    uploader: OpenOCD

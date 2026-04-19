@@ -1,0 +1,7 @@
+#ifndef _BSP_A7670C_DRIVER_H
+#define _BSP_A7670C_DRIVER_H
+
+ 
+
+
+#endif // !_BSP_A7670C_DRIVER_H
