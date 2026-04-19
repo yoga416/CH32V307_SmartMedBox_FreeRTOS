@@ -169,77 +169,108 @@ void bsp_max30102_port_init(void) {
 
 
 
+#include <string.h>
+
+// 定义滑动滤波窗口大小（建议 3 到 5，数值越大越平滑但响应越慢）
+#define HR_SPO2_FILTER_SIZE 3
+
+// 静态全局历史数组，用于滤波
+static int32_t g_hr_history[HR_SPO2_FILTER_SIZE] = {0};
+static float   g_spo2_history[HR_SPO2_FILTER_SIZE] = {0.0f};
+static uint8_t g_filter_idx = 0;
+
 // 心率血氧解算结果回调函数
- void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_valid) 
+void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_valid) 
 {
-  //检查解算结果的有效性&不能超过阈值
-  uint32_t hr_max_threshold = 200; // 根据实际情况调整
-  uint32_t hr_min_threshold = 50;  // 根据实际情况调整
+    // 检查解算结果的有效性范围
+    const uint32_t hr_max_threshold = 180;  // 人的极限心率一般不超过 180
+    const uint32_t hr_min_threshold = 40;   // 正常人不会低于 40
 
-  uint32_t spo2_min_threshold = 70; // 根据实际情况调整
-  uint32_t spo2_max_threshold = 99; // 根据实际情况调整
- 
-  //打包结构体
-  static Packet_t packet;
-  //验证心率
-  if(hr_valid && (hr >= hr_min_threshold) && (hr <= hr_max_threshold)) {
-#ifdef MAX30102_HANDLER_DEBUG
-    printf("Heart Rate: %1ld bpm\r\n", hr);
-#endif
-  } 
-  else {
-#ifdef MAX30102_HANDLER_DEBUG
-    printf("Heart Rate: Invalid or Out of Range\r\n");
-#endif
-  }
-//验证血氧
-  if(spo2_valid && (spo2 >= spo2_min_threshold) && (spo2 <= spo2_max_threshold)) {
+    const float spo2_min_threshold = 50.0f; // 血氧低于 50% 早进 ICU 了，改高点防误判
+    const float spo2_max_threshold = 100.0f;
 
-    uint32_t spo2_val = (uint32_t)(spo2 * 10.0f + 0.5f); 
-    uint32_t int_part = spo2_val / 10;
-    uint32_t frac_part = spo2_val % 10;
-#ifdef MAX30102_HANDLER_DEBUG
-    printf("SpO2: %lu.%lu%%\r\n", int_part, frac_part);
-#endif
-    } 
-    else {
-#ifdef MAX30102_HANDLER_DEBUG
-    printf("SpO2: Invalid or Out of Range\r\n");
-#endif
-    }
+    // 1. 总体有效性判断
+    bool is_data_valid = (hr_valid && spo2_valid && 
+                          (hr >= hr_min_threshold) && (hr <= hr_max_threshold) && 
+                          (spo2 >= spo2_min_threshold) && (spo2 <= spo2_max_threshold));
 
-//检验完成并打印&上传结果到wifi模块或其他通信接口
-    if(hr_valid && spo2_valid && 
-       (hr >= hr_min_threshold) && (hr <= hr_max_threshold) && 
-       (spo2 >= spo2_min_threshold) && (spo2 <= spo2_max_threshold)) 
+    if (is_data_valid) 
     {
-        //扩大100倍打包成整数，方便通信传输
-        int32_t hr_X100= hr * 100;
-        int32_t spo2_X100 = (int32_t)(spo2 * 100);
+        // 2. 将有效数据压入滑动窗口进行滤波
+        g_hr_history[g_filter_idx] = hr;
+        g_spo2_history[g_filter_idx] = spo2;
+        g_filter_idx = (g_filter_idx + 1) % HR_SPO2_FILTER_SIZE;
 
-        //清除packet数据
+        // 3. 计算窗口内的平均值
+        int32_t smoothed_hr = 0;
+        float smoothed_spo2 = 0.0f;
+        uint8_t valid_count = 0;
+
+        for (int i = 0; i < HR_SPO2_FILTER_SIZE; i++) 
+        {
+            if (g_hr_history[i] > 0) // 剔除初始的 0 值
+            {
+                smoothed_hr += g_hr_history[i];
+                smoothed_spo2 += g_spo2_history[i];
+                valid_count++;
+            }
+        }
+        
+        if (valid_count > 0) 
+        {
+            smoothed_hr /= valid_count;
+            smoothed_spo2 /= valid_count;
+        }
+
+        // 4. 打印平滑后的数据
+#ifdef MAX30102_HANDLER_DEBUG
+        uint32_t spo2_val = (uint32_t)(smoothed_spo2 * 10.0f + 0.5f); 
+        printf("Smoothed Heart Rate: %ld bpm\r\n", smoothed_hr);
+        printf("Smoothed SpO2: %lu.%lu%%\r\n", spo2_val / 10, spo2_val % 10);
+#endif
+
+        // 5. 扩大 100 倍打包成整数，方便通信传输
+        int32_t hr_X100   = smoothed_hr * 100;
+        int32_t spo2_X100 = (int32_t)(smoothed_spo2 * 100);
+
+        // 注意：去掉 static 关键字，在 FreeRTOS 中使用局部变量防止不可重入问题
+        Packet_t packet; 
         memset(&packet, 0x00, sizeof(Packet_t));
+
         packet.head[0] = PACKET_HEAD;
-        packet.sensor_num = SENSOR_DATA_SIZE;
+        packet.sensor_num = SENSOR_DATA_SIZE; // 假设定义为 2
+        
         packet.sensor_data[0].sensor_id = SENSOR_ID_HEART_RATE;
         packet.sensor_data[0].data = (uint16_t)hr_X100;
+        
         packet.sensor_data[1].sensor_id = SENSOR_ID_SPO2;
         packet.sensor_data[1].data = (uint16_t)spo2_X100;
+        
         packet.length = sizeof(Packet_t);
-        packet.crc= Calculate_CRC(&packet);
+        packet.crc = Calculate_CRC(&packet);
         packet.tail[0] = PACKET_TAIL;
 
-        //压入buffer中
+        // 6. 压入 buffer 中
         if(RingBuffer_push(&g_ring_buffer, &packet) == 0xAF) {
 #ifdef MAX30102_HANDLER_DEBUG
-            printf("[MAX30102 Callback] Heart Rate and SpO2 packet pushed to ring buffer\r\n");
+            printf("[MAX30102 Callback] Packet pushed to ring buffer\r\n");
 #endif
         } 
         else {
 #ifdef MAX30102_HANDLER_DEBUG
-            printf("[MAX30102 Callback] Failed to push Heart Rate and SpO2 packet to ring buffer\r\n"); 
+            printf("[MAX30102 Callback] Failed to push packet! Buffer FULL?\r\n"); 
 #endif  
         }
+    } 
+    else 
+    {
+        // 遇到无效数据时的处理
+#ifdef MAX30102_HANDLER_DEBUG
+        printf("Measurement Invalid or Out of Range. HR:%ld, SpO2:%.1f\r\n", hr, spo2);
+#endif
+        // 可选：如果手指脱落或数据无效，清空滤波历史，防止下次测量带入旧数据
+         memset(g_hr_history, 0, sizeof(g_hr_history));
+         memset(g_spo2_history, 0, sizeof(g_spo2_history));
     }
 }
 void bsp_max30102_handler_init(void) 

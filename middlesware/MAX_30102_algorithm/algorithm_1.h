@@ -14,8 +14,8 @@ typedef bool boolean;
 #define false 0
 #endif
 
-#define FS 50
-#define MAX30102_TARGET_SAMPLES 300
+#define FS 46
+#define MAX30102_TARGET_SAMPLES 500
 #define BUFFER_SIZE (MAX30102_TARGET_SAMPLES)
 #define MA4_SIZE 4
 #define BUFFER_SIZE_MA4 (BUFFER_SIZE - MA4_SIZE)

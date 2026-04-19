@@ -92,34 +92,49 @@ void max30102_handler_task(void *argument)
                     xQueueReset(xSem_MAX30102_Exti);
 
                     // --- B. 核心采集循环 (必须快！) ---
-                    for (int i = 0; i < target_samples; i++) 
+                    #define PREHEAT_SAMPLES 100 // 定义预热点数（如果是50Hz，100个点就是抛弃前2秒的数据）
+                    uint16_t total_samples_to_read = target_samples + PREHEAT_SAMPLES; // 总共要读的次数
+
+                    for (int i = 0; i < total_samples_to_read; i++) 
                     {
                         // 等待中断，超时时间设为 500ms 足够
                         if (xSemaphoreTake(xSem_MAX30102_Exti, pdMS_TO_TICKS(500)) == pdTRUE) 
                         {
 
-                        handler->max30102_instance->pf_get_filtered(handler->max30102_instance, &red, &ir);
-            
-                         uint8_t status_reg_1;
-                         // 读取中断状态寄存器，清除中断 (如果之前的 pf_get_filtered 没有自动清除中断的话，这里确保清除)
-                        handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &status_reg_1);
-                        //打印滤波后的数据
+                            handler->max30102_instance->pf_get_filtered(handler->max30102_instance, &red, &ir);
+                
+                            uint8_t status_reg_1;
+                            // 读取中断状态寄存器，清除中断
+                            handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &status_reg_1);
+
+                            // 脱落检测
+                            if (ir < 5000) 
+                            {
 #ifdef MAX30102_HANDLER_DEBUG
-                        printf("[Handler] Sample %d: Red=%lu, IR=%lu\r\n", i+1, red, ir);
+                                printf("\r\n[Handler] Warning: Finger removed!\n");
 #endif
-                              // 4. 脱落检测
-                              if (ir < 5000) // 这个阈值需要根据实际情况调整，过高可能误判脱落，过低可能漏掉有效数据
-                              {
-#ifdef MAX30102_HANDLER_DEBUG
-                         printf("\r\n[Handler] Warning: Finger removed!\n");
-#endif
-                              break; 
+                                break; 
                             }
 
-                              handler->red_buffer[i] = red;
-                              handler->ir_buffer[i]  = ir;
-                              valid_points++;
-                              }
+                            // 【新增逻辑：抛弃前 100 个不稳定的爬升点】
+                            if (i < PREHEAT_SAMPLES)
+                            {
+#ifdef MAX30102_HANDLER_DEBUG
+                                // 可选：打印预热进度
+                                // printf("[Handler] Preheating... %d/%d\n", i+1, PREHEAT_SAMPLES);
+#endif
+                                continue; // 直接跳过，不放入数组，也不增加 valid_points
+                            }
+
+                            // 预热完毕，真正放入数组供算法解算
+                            handler->red_buffer[valid_points] = red;
+                            handler->ir_buffer[valid_points]  = ir;
+                            
+#ifdef MAX30102_HANDLER_DEBUG
+                            printf("[Handler] Valid Sample %ld: Red=%lu, IR=%lu\r\n", valid_points+1, red, ir);
+#endif
+                            valid_points++;
+                        }
                     }
                     // --- C. 数据收集完成，执行算法解算 ---
                     if (valid_points >= target_samples) 

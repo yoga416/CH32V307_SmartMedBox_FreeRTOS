@@ -210,8 +210,8 @@ static void MAX30102_TestTask(void)
     // 给系统留一点稳定时间
     vTaskDelay(pdMS_TO_TICKS(4000));    // 4秒后开始测量
 
-    // for (;;)
-    // {
+    for (;;)
+    {
         // 1. 构造事件
         event.event_type       = max_event_calc_hr_spo2; // 触发“采集+计算”流程
         event.lifetime         = 1000;                   // 队列发送超时时间
@@ -233,12 +233,12 @@ static void MAX30102_TestTask(void)
             printf("错误:MAX30102 处理器未就绪！\n");
         }
 
-    //     vTaskDelay(pdMS_TO_TICKS(10000)); // 10秒后再次测量，实际使用中可以根据需求调整频率
-    // }
-    for(;;)
-    {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(10000)); // 10秒后再次测量，实际使用中可以根据需求调整频率
     }
+    // for(;;)
+    // {
+    //     vTaskDelay(pdMS_TO_TICKS(1000));
+    // }
 }
 #endif
 
