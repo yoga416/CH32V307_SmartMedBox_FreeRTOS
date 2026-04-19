@@ -233,7 +233,7 @@ static void MAX30102_TestTask(void)
             printf("错误:MAX30102 处理器未就绪！\n");
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10000)); // 10秒后再次测量，实际使用中可以根据需求调整频率
+        vTaskDelay(pdMS_TO_TICKS(15000)); // 10秒后再次测量，实际使用中可以根据需求调整频率
     }
     // for(;;)
     // {

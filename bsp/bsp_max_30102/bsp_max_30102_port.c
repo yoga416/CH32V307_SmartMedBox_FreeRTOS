@@ -264,13 +264,13 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
     } 
     else 
     {
-        // 遇到无效数据时的处理
 #ifdef MAX30102_HANDLER_DEBUG
-        printf("Measurement Invalid or Out of Range. HR:%ld, SpO2:%.1f\r\n", hr, spo2);
+        printf("Measurement Invalid or Out of Range. Resetting Filters...\r\n");
 #endif
-        // 可选：如果手指脱落或数据无效，清空滤波历史，防止下次测量带入旧数据
-         memset(g_hr_history, 0, sizeof(g_hr_history));
-         memset(g_spo2_history, 0, sizeof(g_spo2_history));
+        // 【关键】手指一旦松开或数据无效，立刻清空滑动窗口！
+        memset(g_hr_history, 0, sizeof(g_hr_history));
+        memset(g_spo2_history, 0, sizeof(g_spo2_history));
+        g_filter_idx = 0;
     }
 }
 void bsp_max30102_handler_init(void) 

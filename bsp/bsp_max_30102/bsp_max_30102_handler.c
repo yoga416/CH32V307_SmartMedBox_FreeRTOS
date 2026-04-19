@@ -72,102 +72,101 @@ void max30102_handler_task(void *argument)
                                         handler->event_queue_handler,
                                         &event, portMAX_DELAY) == MAX_HANDLER_OK)
         {
-            // 2. 根据事件类型执行相应操作
             switch (event.event_type)
             {
-                // 多次读取原始数据事件，适用于需要连续采集数据的算法解算场景
                 case max_event_calc_hr_spo2: 
                 {
+                    // === 【第一步：彻底清空环境】 ===
+                    // 1. 强制清空事件队列中积压的旧指令（防止手松开时产生的多次测量请求）
+                    max_event_t dummy_event;
+                    while(handler->os_handler_instance->pf_os_queue_get(
+                            handler->event_queue_handler, &dummy_event, 0) == MAX_HANDLER_OK);
+                    
+                    // 2. 强制清空由于手松开瞬间产生的残余信号量
+                    while(xSemaphoreTake(xSem_MAX30102_Exti, 0) == pdTRUE);
+
                     uint16_t target_samples = event.sample_count;
                     int32_t  valid_points = 0;
+                    bool     is_aborted = false; // 引入放弃标志位
                     void *ctx = handler->max30102_instance->hw->hi2c;
 
-                    // --- A. 采集前强制复位硬件，确保引脚处于高电平 ---
+                    // 3. 硬件寄存器复位
                     handler->max30102_instance->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_WR_PTR, 0x00);
                     handler->max30102_instance->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_OVF_COUNTER, 0x00);
                     handler->max30102_instance->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_RD_PTR, 0x00);
                     
-                    uint8_t dummy;
-                    handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy);
-                    xQueueReset(xSem_MAX30102_Exti);
+                    uint8_t dummy_status;
+                    handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy_status);
 
-                    // --- B. 核心采集循环 (必须快！) ---
-                    #define PREHEAT_SAMPLES 100 // 定义预热点数（如果是50Hz，100个点就是抛弃前2秒的数据）
-                    uint16_t total_samples_to_read = target_samples + PREHEAT_SAMPLES; // 总共要读的次数
+                    // === 【第二步：核心采集循环】 ===
+                    #define PREHEAT_SAMPLES 100 
+                    uint16_t total_needed = target_samples + PREHEAT_SAMPLES;
 
-                    for (int i = 0; i < total_samples_to_read; i++) 
+                    for (int i = 0; i < total_needed; i++) 
                     {
-                        // 等待中断，超时时间设为 500ms 足够
+                        // 等待中断，超时设为 500ms
                         if (xSemaphoreTake(xSem_MAX30102_Exti, pdMS_TO_TICKS(500)) == pdTRUE) 
                         {
-
                             handler->max30102_instance->pf_get_filtered(handler->max30102_instance, &red, &ir);
                 
-                            uint8_t status_reg_1;
-                            // 读取中断状态寄存器，清除中断
-                            handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &status_reg_1);
+                            // 清除硬件中断位
+                            handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy_status);
 
-                            // 脱落检测
-                            if (ir < 5000) 
+                            // --- 脱落检测 ---
+                            if ((i > 20 && ir < 30000)) // 提高阈值到 8000，防止临界抖动
                             {
 #ifdef MAX30102_HANDLER_DEBUG
-                                printf("\r\n[Handler] Warning: Finger removed!\n");
+                                printf("\r\n[Handler] Warning: Finger removed! Aborting...\n");
 #endif
+                                // 给用户 2 秒时间放稳手指，防止立即重新进入循环导致的连环误判
+                                vTaskDelay(pdMS_TO_TICKS(2000));
+                                is_aborted = true; 
                                 break; 
                             }
 
-                            // 【新增逻辑：抛弃前 100 个不稳定的爬升点】
-                            if (i < PREHEAT_SAMPLES)
-                            {
-#ifdef MAX30102_HANDLER_DEBUG
-                                // 可选：打印预热进度
-                                // printf("[Handler] Preheating... %d/%d\n", i+1, PREHEAT_SAMPLES);
-#endif
-                                continue; // 直接跳过，不放入数组，也不增加 valid_points
-                            }
+                            // --- 预热机制 ---
+                            if (i < PREHEAT_SAMPLES) continue;
 
-                            // 预热完毕，真正放入数组供算法解算
                             handler->red_buffer[valid_points] = red;
                             handler->ir_buffer[valid_points]  = ir;
-                            
-#ifdef MAX30102_HANDLER_DEBUG
-                            printf("[Handler] Valid Sample %ld: Red=%lu, IR=%lu\r\n", valid_points+1, red, ir);
-#endif
                             valid_points++;
                         }
+                        else 
+                        {
+                            // 中断超时，可能是传感器连接断开
+                            is_aborted = true;
+                            break;
+                        }
                     }
-                    // --- C. 数据收集完成，执行算法解算 ---
-                    if (valid_points >= target_samples) 
+
+                    // === 【第三步：结果判定与清理】 ===
+                    if (!is_aborted && (valid_points >= target_samples)) 
                     {
-                        // 调用美信算法库进行心率血氧解算
                         float spo2 = 0;
                         int32_t hr = 0;
                         int8_t spo2_valid = 0, hr_valid = 0;
-                        // 注意：算法库函数参数类型需要与定义保持一致
+
                         maxim_heart_rate_and_oxygen_saturation(
                                                         handler->ir_buffer,
                                                         valid_points, 
                                                         handler->red_buffer,
-                                                        &spo2, 
-                                                        &spo2_valid, 
-                                                        &hr,    
-                                                        &hr_valid
-                                                        );
+                                                        &spo2, &spo2_valid, &hr, &hr_valid);
 
                         if (event.pf_calc_callback) {
                             event.pf_calc_callback(hr, hr_valid, spo2, spo2_valid);
                         }
-                        else{
-#ifdef MAX30102_HANDLER_DEBUG
-                            printf("[Handler] callback is NULL\n");
-#endif // DEBUG_ENABLE                      
-                            }
                     } 
-                    else {
-#ifdef MAX30102_HANDLER_DEBUG
-                    printf("[Handler] Collection failed (incomplete data).\n");
-#endif // DEBUG_ENABLE
+                    else 
+                    {
+                        // 测量失败或中途放弃：
+                        // 1. 调用回调并传入 0，触发 App 层滤波器的清零逻辑
                         if (event.pf_calc_callback) event.pf_calc_callback(0, 0, 0, 0);
+                        
+#ifdef MAX30102_HANDLER_DEBUG
+                        printf("[Handler] Logic Reset. Waiting for user stabilization...\n");
+#endif
+                        // 2. 强制给系统一个 2 秒的“冷静期”，防止立刻进入下一次错误的采集循环
+                        vTaskDelay(pdMS_TO_TICKS(2000));
                     }
                     break;
                 }
