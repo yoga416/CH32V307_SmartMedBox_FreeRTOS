@@ -1,98 +1,82 @@
 #include "system.h"
+#include "debug.h"
+#include "app_task.h"
+#include "Middle_ring_buffer.h"
+
+/* --- 引入所有底层外设与传感器的头文件 --- */
+#include "../bsp/usart_wifi_esp/usart_wifi_esp.h"
 #include "sht40_port.h"
 #include "sht40_handler.h"
 #include "../bsp/bsp_MLX_90614/bsp_MLX_90614_port.h"
-#include "../bsp/usart_wifi_esp/usart_wifi_esp.h"
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "semphr.h"
-#include"Middle_ring_buffer.h"
+#include "../bsp/bsp_MLX_90614/bsp_MLX_90614_handler.h"
+#include "../bsp/bsp_max_30102/bsp_max_30102_port.h"
+#include "../bsp/bsp_max_30102/bsp_max_30102_handler.h"
+#include "../bsp/bsp_battery_check/bsp_battery_port.h"
+#include "../bsp/bsp_battery_check/bsp_battery_driver.h"
+#include "bsp_tianwen_reg.h"
+// 如果有电池 handler 头文件请取消注释
+/////////////////////////////////////////
+#include "../bsp_rtc/bsp_rtc.h"      // 解决 BSP_RTC_Init 报错
+#include "lcd.h"                     // 解决 LCD_Init, WHITE, lcddev 报错
+#include "touch.h"                   // 解决触控相关报错
+#include "ctpiic.h"                  // 解决 IIC 报错
+#include "lvgl.h"                    // 解决 lv_init 报错
+#include "lv_port_disp.h"            // 解决 lv_port_disp_init 报错
+#include "lv_port_indev.h"           // 解决 lv_port_indev_init 报错
+#include "gui_guider.h"              // 解决 setup_ui 报错
+#include "custom.h"                  // LVGL 自定义 UI 头文件
+#include "../bsp/bsp_lcd_lvgl/General_File/system.h"  // system_Init()
+#include "spi_w25q.h"                // W25Q_Init, W25Q_ReadData
+/* 全局变量定义 */
+lv_ui guider_ui;
+// ========================================================
+/* --- 外部变量引入 --- */
 extern QueueHandle_t xUART_Queue;        // 消息队列句柄
-extern SemaphoreHandle_t xDMA_Sem;      // DMA发送完成信号量
+extern SemaphoreHandle_t xDMA_Sem;       // DMA发送完成信号量
 extern SemaphoreHandle_t xBufferDataSemaphore;  // 缓冲区数据信号量
-extern QueueHandle_t sensor_data_queue; // 传感器数据队列句柄
-extern RingBuffer_t g_ring_buffer; //全局环形缓冲区实例
-EventGroupHandle_t xEventGroup; // 事件组句柄
-//app_task 任务负责从队列中接收传感器数据，并通过USART发送给ESP8266。
+extern QueueHandle_t sensor_data_queue;  // 传感器数据队列句柄
+extern RingBuffer_t g_ring_buffer;       // 全局环形缓冲区实例
+extern QueueHandle_t CmdQueue;          // 系统命令队列句柄
+extern QueueHandle_t sendtianwenQueue;       // 系统命令队列句柄
+extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
+extern QueueHandle_t sensor_data_lcd_queue; // 传感器数据队列
+extern SemaphoreHandle_t xSem_face_recog; // 人脸识别信号量
 
+
+//事件定义
+QueueHandle_t xAppEventQueue = NULL;
+/* --- 全局句柄定义 --- */
+EventGroupHandle_t xEventGroup = NULL; // 事件组句柄
+ SystemCommand_t received_cmd;
+/* --- 定时器参数宏 --- */
 #define ARR  (20000 - 1) // 定时器自动重装载值，决定定时周期
 #define PSC  (7200 - 1)  // 定时器预分频值，决定定时器计数频率
 
 
-#if 1
-/**
- * @brief 单元测试 1：验证 I2C 控制器硬件状态
- */
-void UT_Hardware_Verify(void) {
-    // 1. 检查 I2C1 是否使能 (PE位)
-    if (I2C1->CTLR1 & I2C_CTLR1_PE) {
-        printf("[UT] I2C1 Peripheral: ENABLED\n");
-    } else {
-        printf("[UT] I2C1 Peripheral: ERROR (Check Clock/Init)\n");
-    }
+/* =========================================================================
+ * 内部私有初始化函数
+ * ========================================================================= */
 
-    // 2. 检查总线 Busy 位
-    // 如果没有上拉电阻或 SDA/SCL 被短路接地，这里会显示 BUSY
-    if (I2C_GetFlagStatus(I2C1, I2C_FLAG_BUSY)) {
-        printf("[UT] Bus Status: BUSY (Check Pull-up Resistors)\n");
-    } else {
-        printf("[UT] Bus Status: IDLE (Ready)\n");
-    }
-}
-
-/**
- * @brief 单元测试 2：验证 SHT40 是否在位
- * @return 0: 成功, 1: 失败
- */
-uint8_t UT_SHT40_Ping(void) {
-    uint32_t timeout = 10000;
-
-    // 1. 产生起始信号
-    I2C_GenerateSTART(I2C1, ENABLE);
-    while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_MODE_SELECT)) {
-        if(--timeout == 0) return 1;
-    }
-
-    // 2. 发送写地址 (0x44 << 1 = 0x88) [cite: 409, 415]
-    I2C_Send7bitAddress(I2C1, 0x88, I2C_Direction_Transmitter);
-    
-    timeout = 10000;
-    // 等待地址被从机应答 (ACK) [cite: 417, 445]
-    while(!I2C_CheckEvent(I2C1, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED)) {
-        if(--timeout == 0) {
-            I2C_GenerateSTOP(I2C1, ENABLE);
-            printf("[UT] SHT40 Ping: FAILED (No ACK)\n");
-            return 1;
-        }
-    }
-
-    // 3. 产生停止信号
-    I2C_GenerateSTOP(I2C1, ENABLE);
-    printf("[UT] SHT40 Ping: SUCCESS (ACK Received)\n");
-    return 0;
-}
-#endif
-//串口初始化函数
-usart_wifi_esp_Status_t USART_WIFI_ESP_Init(void)
+// 1. WiFi串口初始化
+static usart_wifi_esp_Status_t USART_WIFI_ESP_Init(void)
 {
-    
     USART_InitTypeDef USART_InitStructure={0};
     GPIO_InitTypeDef GPIO_InitStructure={0};
     
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-    //RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD | RCC_APB2Periph_AFIO, ENABLE);
+    GPIO_PinRemapConfig(GPIO_Remap_USART2, ENABLE);
 
     GPIO_InitStructure.GPIO_Pin = DATA_USART_TX_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; // 复用推挽
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; 
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(DATA_USART_PORT, &GPIO_InitStructure);
 
     GPIO_InitStructure.GPIO_Pin = DATA_USART_RX_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; // 浮空输入
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; 
     GPIO_Init(DATA_USART_PORT, &GPIO_InitStructure);
 
-    USART_InitStructure.USART_BaudRate = USART_WIFI_ESP_BAUDRATE;//115200
+    USART_InitStructure.USART_BaudRate = USART_WIFI_ESP_BAUDRATE;
     USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     USART_InitStructure.USART_StopBits = USART_StopBits_1;
     USART_InitStructure.USART_Parity = USART_Parity_No;
@@ -102,58 +86,99 @@ usart_wifi_esp_Status_t USART_WIFI_ESP_Init(void)
 
     USART_Cmd(USART2, ENABLE);
     return USART_WIFI_ESP_OK;
+}// 天问串口初始化 (USART3完全重映射: TX=PD8, RX=PD9)
+static void  USART_TIANWEN_Init(void)
+{
+    USART_InitTypeDef USART_InitStructure={0};
+    GPIO_InitTypeDef GPIO_InitStructure={0};
+    NVIC_InitTypeDef NVIC_InitStructure={0}; 
+    
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD | RCC_APB2Periph_AFIO, ENABLE);
+    GPIO_PinRemapConfig(GPIO_FullRemap_USART3, ENABLE);
+
+    // 配置 TX (PD8)
+    GPIO_InitStructure.GPIO_Pin = TW_USART_TX_PIN; 
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; 
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(TW_USART_PORT, &GPIO_InitStructure);
+
+    // 配置 RX (PD9)
+    GPIO_InitStructure.GPIO_Pin = TW_USART_RX_PIN; 
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; 
+    GPIO_Init(TW_USART_PORT, &GPIO_InitStructure);
+
+    // USART3 参数配置
+    USART_InitStructure.USART_BaudRate = 115200; 
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+    USART_InitStructure.USART_StopBits = USART_StopBits_1;
+    USART_InitStructure.USART_Parity = USART_Parity_No;
+    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_Init(USART3, &USART_InitStructure);
+
+    // --- 新增：配置 USART3 中断优先级 ---
+    // 警告：在 FreeRTOS 中，调用 FreeRTOS API 的中断，其抢占优先级必须大于或等于 configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY (通常设为 5)
+    // 这里的优先级数字越大，优先级越低。这里设为 5 比较安全。
+    NVIC_InitStructure.NVIC_IRQChannel = USART3_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 5; 
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    // --- 新增：开启接收中断 (RXNE) ---
+    USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
+
+    USART_Cmd(USART3, ENABLE);
 }
-//DMA初始化函数
-DMA_Status_t USART_DMA_Init(void)
+// 2. USART的DMA初始化
+static uint8_t USART_DMA_Init(void)
 {
     DMA_InitTypeDef DMA_InitStructure={0};
     NVIC_InitTypeDef NVIC_InitStructure={0};
 
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 
-    // 配置 DMA1 Channel7 用于 USART2 TX
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&USART2->DATAR; // USART2 数据寄存器地址
-    DMA_InitStructure.DMA_MemoryBaseAddr = 0; // 发送缓冲区地址，后续发送时设置
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST; // 外设为目的地
-    DMA_InitStructure.DMA_BufferSize = 0; // 发送数据长度，后续发送时设置
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable; // 外设地址不变
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable; // 内存地址递增
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte; // 外设数据大小为字节
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte; // 内存数据大小为字节
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal; // 普通模式   
-    DMA_InitStructure.DMA_Priority = DMA_Priority_High; // 高优先级
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable; // 非内存到内存传输
+    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&USART2->DATAR;
+    DMA_InitStructure.DMA_MemoryBaseAddr = 0; 
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralDST; 
+    DMA_InitStructure.DMA_BufferSize = 0; 
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable; 
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable; 
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte; 
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte; 
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;    
+    DMA_InitStructure.DMA_Priority = DMA_Priority_High; 
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable; 
     DMA_Init(DMA1_Channel7, &DMA_InitStructure);
 
-    DMA_ITConfig(DMA1_Channel7, DMA_IT_TC, ENABLE); // 传输完成中断
+    DMA_ITConfig(DMA1_Channel7, DMA_IT_TC, ENABLE); 
 
-    // 配置 DMA1 Channel7 中断
     NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel7_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
-    return DMA_OK;
-
+    
+    return 0;
 }
 
-//定时器初始化函数//周期为2S
-SensorTimStatus_t Sensor_TIM_Init(void)
+// 3. 传感器定时器初始化 (周期为2S)
+static SensorTimStatus_t Sensor_TIM_Init(void)
 {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure={0};
     NVIC_InitTypeDef NVIC_InitStructure={0};
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 
-    TIM_TimeBaseStructure.TIM_Prescaler = PSC; // 72MHz / 7200 = 10kHz
+    TIM_TimeBaseStructure.TIM_Prescaler = PSC; 
     TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;
-    TIM_TimeBaseStructure.TIM_Period = ARR; // 10kHz / 20000 = 0.5Hz (2秒周期)
+    TIM_TimeBaseStructure.TIM_Period = ARR; 
     TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseStructure.TIM_RepetitionCounter = 0;
     TIM_TimeBaseInit(SENSOR_TIM, &TIM_TimeBaseStructure);
     TIM_ITConfig(SENSOR_TIM, TIM_IT_Update, ENABLE);
     
-    // 配置 TIM2 中断
     NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
@@ -161,90 +186,183 @@ SensorTimStatus_t Sensor_TIM_Init(void)
     NVIC_Init(&NVIC_InitStructure);
 
     TIM_Cmd(SENSOR_TIM, ENABLE);
-
     return SENSOR_TIM_OK;
 }
 
 
-
-
-
-//外设初始化函数，负责调用各个外设的初始化函数，并进行必要的错误检查
-uint8_t  g_peripheral_init()
+/* =========================================================================
+ * 全局外设初始化统一入口
+ * ========================================================================= */
+uint8_t g_peripheral_init(void)
 {
 
-    printf("[System] Initializing peripherals*****************************\n");
-    // 初始化USART与ESP8266通信
-    usart_wifi_esp_Status_t usart_ret;
-    usart_ret = USART_WIFI_ESP_Init();
-    if(usart_ret != USART_WIFI_ESP_OK) {
+    /* 1. 基础通信外设初始化 */
+    if(USART_WIFI_ESP_Init() != USART_WIFI_ESP_OK) {
          printf("[Error] USART_WIFI_ESP Init Failed\n");
-         return 0xFF;
+         return SYSTEM_INIT_FAIL;
     }
-    
-    // 初始化DMA
-    DMA_Status_t dma_ret;
-    dma_ret = USART_DMA_Init();
-    if(dma_ret != DMA_OK) {
+    if(USART_DMA_Init() != 0) {
          printf("[Error] DMA Init Failed\n");
-         return 0xFF;
+         return SYSTEM_INIT_FAIL;
     }
-    
-
-    // 初始化传感器采集定时器
-    SensorTimStatus_t tim_ret;
-    tim_ret = Sensor_TIM_Init();
-    if(tim_ret != SENSOR_TIM_OK) {
+    if(Sensor_TIM_Init() != SENSOR_TIM_OK) {
          printf("[Error] Sensor TIM Init Failed\n");
-         return 0xFF;
-    }       
-   
+         return SYSTEM_INIT_FAIL;
+    }
 
-#if 0// SHT40 Handler 初始化
-sht40_handler_start();
-#endif 
+    //天问初始化
+    USART_TIANWEN_Init();
 
-#if 0
-    MLX90614_Handler_start();
-#endif
-
-#if 1   // MAX30102 Handler 初始化
-printf("[System] starting MAX30102...\n");
-bsp_max30102_port_init();
-bsp_max30102_handler_init();
-#endif
-
-#if 0   //电池检测模块初始化
-bsp_battery_port_init();
-bsp_battery_task_init();
-#endif
-
-    //信号量用于DMA传输完成通知
+     /* 2. I2C总线初始化 */
+    /* 3. 操作系统同步原语初始化 */
     xDMA_Sem = xSemaphoreCreateBinary();
-    if (xDMA_Sem == NULL) {
-    printf("[Error] Failed to create DMA semaphore\n");
-    return 0xFF;
-    }
- 
-    xSemaphoreGive(xDMA_Sem); // 初始状态为可用
+    if(xDMA_Sem != NULL) xSemaphoreGive(xDMA_Sem);
     
-    //信号量用于缓冲区数据通知
     xBufferDataSemaphore = xSemaphoreCreateBinary();
-    if (xBufferDataSemaphore == NULL) {
-        printf("[Error] Failed to create buffer data semaphore\n");
-        return 0xFF;
-    }
-    //ring_buffer初始化
-    RingBuffer_Init(&g_ring_buffer);
-    printf("Ring Buffer Init SUCCESS\n");
-   
-    //事件组初始化
     xEventGroup = xEventGroupCreate();
-    if (xEventGroup == NULL) {
-        printf("[Error] Failed to create event group\n");
-        return 0xFF;
-    }
-   
+    RingBuffer_Init(&g_ring_buffer);
+        if(xEventGroup == NULL) {
+            printf("[Error] Event Group Create Failed\n");
+        }
 
-    return 0x32;
-}   
+    // 系统命令队列创建
+    CmdQueue = xQueueCreate(10, sizeof(SystemCommand_t));
+    if (CmdQueue == NULL) {
+        printf("[Error] Failed to create CmdQueue!\n");
+    }
+    // 天问通信命令队列创建
+    sendtianwenQueue = xQueueCreate(10, sizeof(Tianwen_Packet_t));
+    if (sendtianwenQueue == NULL) {
+        printf("[Error] Failed to create sendtianwenQueue!\n");
+    }
+    
+      xSysCmdQueue = xQueueCreate(10, sizeof(SystemCommand_t));
+    if (xSysCmdQueue == NULL) {
+        printf("[Error] Failed to create SysCmdQueue!\n");
+        vTaskDelete(NULL);
+    }
+    //传感器数据采集完成发送到lcd显示的队列
+    sensor_data_lcd_queue = xQueueCreate(10, sizeof(Tianwen_Packet_t));
+    if (sensor_data_lcd_queue == NULL) {
+        printf("[Error] Failed to create sensor_data_lcd_queue!\n");
+        return SYSTEM_INIT_FAIL;
+    }
+     /* 4. 传感器和其他外设初始化 */
+    // 创建应用层统一事件队列，深度设为 10 足够了
+    xAppEventQueue = xQueueCreate(10, sizeof(AppMsg_t));
+    if (xAppEventQueue == NULL) {
+        printf("[Error] Failed to create xAppEventQueue!\n");
+        // 最好在这里加个错误处理
+    }
+     /* 4. 传感器和其他外设初始化 */
+    // SHT40 温湿度
+    sht40_handler_start();  
+    
+    // MLX90614 红外测温
+    MLX90614_Handler_start();
+    
+    // 人脸识别信号量创建
+    xSem_face_recog = xSemaphoreCreateBinary();
+
+    // MAX30102 引脚和中断初始化
+    bsp_max30102_port_init();
+
+    // MAX30102 Handler 初始化（创建任务等）
+    bsp_max30102_handler_init();
+    
+    // 电池电量检测
+    // 注意：如果有 handler 启动函数也可以加在这里，目前只看到你写了这两个
+    bsp_battery_port_init();
+    // bsp_battery_task_init(); 
+    
+    // //rtc初始化
+    BSP_RTC_Init();
+    
+    //A7670C 初始化
+
+
+    printf("\r\n========================================\r\n");
+    printf("CH32V307 LVGL + GUI Guider Test\r\n");
+    printf("========================================\r\n");
+    
+    // 初始化系统相关外设（如LED等）
+    system_Init();
+    
+    // ========== 初始化并测试 LCD 显示屏 ==========
+    LCD_Init();          // 初始化 LCD 显示屏
+    LCD_Clear(WHITE);    // 用白色清屏，检查 LCD 显示是否正常
+
+    // 设置显示字符串的颜色参数并在 LCD 上显示测试信息
+    POINT_COLOR = BLACK;
+    BACK_COLOR = WHITE;
+    LCD_ShowString(10, 10, (u8*)"LCD OK!", BLUE, WHITE, 16);
+    Delay_Ms(1000);
+    
+    // 初始化触摸屏的 I2C 接口
+    CTP_IIC_Init();
+    
+    printf("Testing FT6336...\r\n");
+    if(FT6336_Init() == 0) {
+        printf("FT6336 OK!\r\n");
+    } else {
+        printf("FT6336 Failed!\r\n");
+    }
+    
+    /* 初始化 SPI2 接口和 W25Q 外部闪存 */
+    W25Q_Init();
+    printf("W25Q Init done.\r\n");
+
+    // /* ========== 烧录字体到 W25Q 闪存（首次使用时取消注释） ========== */
+    // printf("Erasing W25Q for font...\r\n");
+    // // 1. 擦除整个芯片（所有扇区）
+    // W25Q_ChipErase();
+    // // 2. 将中文字体（宋体）烧录到地址 0x000000
+    // W25Q_WriteBuffer(0x000000, (uint8_t*)han_bitmap, han_bitmap_size);
+    // // 3. 将 12px 英文字体烧录到地址 0x020000
+    // W25Q_WriteBuffer(0x020000, (uint8_t*)m12_bitmap, m12_bitmap_size);
+    // // 4. 将 20px 英文字体烧录到地址 0x030000
+    // W25Q_WriteBuffer(0x030000, (uint8_t*)m20_bitmap, m20_bitmap_size);
+    // printf("All fonts burned!\r\n");
+    // while(1); // 烧录完成后停止，观察结果
+    // /* ========== 烧录结束 ========== */
+    
+    /* ========== 验证 W25Q 数据读取 ========== */
+    uint8_t test_buf[32];
+    uint32_t test_addr;
+    
+    printf("=== W25Q Read Test ===\r\n");
+    
+    // 测试1：读取地址 0x000000 处的数据（中文字体数据）
+    test_addr = 0x000000;
+    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
+    printf("Addr 0x%06lX: ", test_addr);
+    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
+    printf("\r\n");
+
+    // 测试2：读取地址 0x020000 处的数据（12px 英文字体数据）
+    test_addr = 0x020000;
+    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
+    printf("Addr 0x%06lX: ", test_addr);
+    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
+    printf("\r\n");
+
+    // 测试3：读取地址 0x030000 处的数据（20px 英文字体数据）
+    test_addr = 0x030000;
+    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
+    printf("Addr 0x%06lX: ", test_addr);
+    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
+    printf("\r\n");
+    printf("=== W25Q Test Done ===\r\n");
+
+    // LVGL 图形库初始化
+    lv_init();
+    lv_port_disp_init();  // 初始化显示接口，绑定到 LCD 屏幕
+    lv_port_indev_init(); // 初始化输入设备接口（触摸屏）
+    
+    // 加载并显示 GUI Guider 生成的 UI
+    setup_ui(&guider_ui);
+    
+    printf("System ready, entering main loop...\r\n");
+    
+    return SYSTEM_INIT_OK;
+}

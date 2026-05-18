@@ -14,22 +14,18 @@
 #include "sht40_handler.h"
 #include "sht40.h"
 #include <string.h>
-/* ========================================================================= */
-/* ======================== 内部静态包装函数实现 =========================== */
-/* ========================================================================= */
-///os层接口实现：FreeRTOS 队列和延时函数的包装
-/**
- * @brief 毫秒级 OS 延时包装
- */
+#include "bsp_tianwen_reg.h"
+
+static th_handler_input_interface_t sht40_config;
+static bsp_sht40_driver_t g_sht40_driver;
+
 static void OS_Delay_Ms_Wrapper(uint32_t const ms)
 {
-    /* pdMS_TO_TICKS 宏负责将毫秒安全转换为操作系统的 Tick 数 */
+   
     vTaskDelay(pdMS_TO_TICKS(ms));
 }
 
-/**
- * @brief OS 队列创建包装
- */
+
 static SHT40_HANDLER_Status_t queue_create_op(uint32_t const item_num, uint32_t const item_size, void **const queue_handle)
 {
     /* xQueueCreate 返回队列句柄，将其强制转换为 void* 赋给底层 */
@@ -47,24 +43,18 @@ static SHT40_HANDLER_Status_t queue_create_op(uint32_t const item_num, uint32_t 
 static SHT40_HANDLER_Status_t queue_get_op(void *const queue_handle, void *const item, uint32_t const timeout_ms)
 {
     TickType_t wait_ticks;
-
-    /* 处理无限等待宏的映射 (匹配 sht40_handler.c 中的 MY_MAX_DELAY_MS) */
     if (timeout_ms == 0xFFFFFFFFUL) {
         wait_ticks = portMAX_DELAY;
     } else {
         wait_ticks = pdMS_TO_TICKS(timeout_ms);
     }
 
-    /* 从队列接收数据 */
     if (xQueueReceive((QueueHandle_t)queue_handle, item, wait_ticks) == pdTRUE) {
         return SHT40_HANDLER_OK;
     }
     return SHT40_HANDLER_ERROR;
 }
 
-/**
- * @brief OS 队列发送(入队)包装
- */
 static SHT40_HANDLER_Status_t queue_put_op(void *const queue_handle, void const *const item, uint32_t const timeout_ms)
 {
     TickType_t wait_ticks = pdMS_TO_TICKS(timeout_ms);
@@ -80,18 +70,14 @@ static SHT40_HANDLER_Status_t queue_put_op(void *const queue_handle, void const 
 /* ======================== 暴露的全局接口实例 ============================= */
 /* ========================================================================= */
 
-/**
- * @brief 挂载所有函数的接口实例
- * @note  应用层（如 app_task.c）通过传入 &g_sht40_freertos_if 来初始化 Handler
- */
 th_handler_os_interface_t g_sht40_freertos_if = {
     .os_delay_ms     = OS_Delay_Ms_Wrapper,
     .os_queue_create = queue_create_op,
     .os_queue_get    = queue_get_op,
     .os_queue_put    = queue_put_op
 };
-//*********************SHT40 Timebase Interface*********************
 
+//*********************SHT40 Timebase Interface*********************
 static uint32_t SHT40_GetTickCount(void)
 {
     return (uint32_t)xTaskGetTickCount();
@@ -106,6 +92,7 @@ static timebase_interface_t g_sht40_timebase_interface = {
     .pf_get_tick_count = SHT40_GetTickCount,
     .pf_delay_ms = SHT40_DelayMs,
 };
+
 /************************ Software I2C Implementation *************************/
 static void SHT40_BitDelay(void)
 {
@@ -177,9 +164,9 @@ SHT40_Status_t SHT40_SoftI2C_Init(void *context)
 
     IIC_W_SCL(1);
     IIC_W_SDA(1);
-    printf("[SHT40 Soft I2C] Initialized successfully.\n");
     return SHT40_OK;
 }
+
 SHT40_Status_t SHT40_SoftI2C_Deinit(void *context)
 {
     GPIO_InitTypeDef GPIO_InitStructure={0};
@@ -189,16 +176,19 @@ SHT40_Status_t SHT40_SoftI2C_Deinit(void *context)
     GPIO_Init(SHT40_SOFT_I2C_SCL_PORT, &GPIO_InitStructure);
     return SHT40_OK;
 }
+
 SHT40_Status_t SHT40_SoftI2C_SendAck(void *context)
 {
     IIC_W_SDA(0); IIC_W_SCL(1); IIC_W_SCL(0); IIC_W_SDA(1);
     return SHT40_OK;
 }
+
 SHT40_Status_t SHT40_SoftI2C_SendNoAck(void *context)
 {
     IIC_W_SDA(1); IIC_W_SCL(1); IIC_W_SCL(0); IIC_W_SDA(1);
     return SHT40_OK;
 }
+
 SHT40_Status_t SHT40_SoftI2C_SendByte(void *context, uint8_t byte)
 {
     for (int i = 0; i < 8; i++) {
@@ -222,7 +212,6 @@ SHT40_Status_t SHT40_SoftI2C_ReadByte(void *context, uint8_t *data)
     return SHT40_OK;
 }
 
-/* 为了不锁死系统，这两个函数不做任何事 */
 void pf_empty_critical(void) { __NOP(); }
 
 //回调函数实现
@@ -230,39 +219,53 @@ void pf_empty_critical(void) { __NOP(); }
 {
     int32_t temp_x100 = 0;
     int32_t hum_x100 = 0;
-    static Packet_t packet_sht;
 
     if (temp != NULL && humi != NULL)
     {
         temp_x100 = (int32_t)(*temp * 100.0f);
         hum_x100 = (int32_t)(*humi * 100.0f);
         
-        printf("[SHT40 Callback] data read success\r\n");
-        printf("[SHT40 Callback] temp=%ld, hum=%ld\n", (long)temp_x100, (long)hum_x100);
+        APP_LOG("[SHT40 Callback] Data ready callback triggered.\n");
+        APP_LOG("[SHT40 Callback] temp=%ld, hum=%ld\n", (long)temp_x100, (long)hum_x100);
         
-        /* 封包打包逻辑 */
-        memset(&packet_sht, 0x00, sizeof(Packet_t));
-        // 按照协议格式填充数据包
-        packet_sht.head[0] = PACKET_HEAD;
-        packet_sht.sensor_num = SENSOR_DATA_SIZE;
-        packet_sht.sensor_data[0].sensor_id = SENSOR_ID_TEMPERATURE;
-        packet_sht.sensor_data[0].data = (uint16_t)temp_x100;
-        packet_sht.sensor_data[1].sensor_id = SENSOR_ID_HUMIDITY;
-        packet_sht.sensor_data[1].data = (uint16_t)hum_x100;
-        packet_sht.length = sizeof(Packet_t);       
-        packet_sht.crc = Calculate_CRC(&packet_sht);
-        packet_sht.tail[0] = PACKET_TAIL;
-        
+        // 发送到天问通信队列
+Tianwen_Packet_t tianwen_packet;
+tianwen_packet.id = SENSOR_ID_TEMPERATURE_HUMIDITY;
+tianwen_packet.data_len = 4; // 我们只需要 4 个有效字节[cite: 1]
+
+// 手动拆分温度 (16位有效数据) 放入 data[0] 和 data[1]
+tianwen_packet.data[0] = (uint8_t)(temp_x100 >> 8);   // 温度高8位
+tianwen_packet.data[1] = (uint8_t)(temp_x100 & 0xFF); // 温度低8位[cite: 2]
+
+// 手动拆分湿度 (16位有效数据) 放入 data[2] 和 data[3]
+tianwen_packet.data[2] = (uint8_t)(hum_x100 >> 8);    // 湿度高8位[cite: 2]
+tianwen_packet.data[3] = (uint8_t)(hum_x100 & 0xFF);  // 湿度低8位[cite: 2]
+
+// 发送到天问通信队列
+if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
+    printf("[ERROR] Failed to send data to sendtianwenQueue!\n");
+}
+//发送到 LCD 显示队列 (保持兼容性)
+if (xQueueSend(sensor_data_lcd_queue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
+    printf("[ERROR] Failed to send data to sensor_data_lcd_queue!\n");
+}
+// 同时也压入 RingBuffer 供 USART 任务异步发送 (保持兼性)
+
+        //发送到环形缓冲区（esp8266 USART 任务消费）
+        Packet_t packet_sht;
+        packet_sht.sensor_id = SENSOR_ID_TEMPERATURE_HUMIDITY;
+        packet_sht.data_len = sizeof(int32_t) * 2;
+        memcpy(packet_sht.payload, &temp_x100, sizeof(int32_t));
+        memcpy(packet_sht.payload + sizeof(int32_t), &hum_x100, sizeof(int32_t));   
+
         /* 压入环形缓冲区交给 USART 任务发送 */
-        if(RingBuffer_push(&g_ring_buffer, &packet_sht) == 0xAF) {
-            printf("[SHT40 Callback] SHT40 packet pushed to ring buffer\n");
-        } else {
-            printf("[SHT40 Callback] Failed to push SHT40 packet to ring buffer\n");
-        }
+        if(RingBuffer_push(&g_ring_buffer, &packet_sht) != 0xAF) {
+            printf("[ERROR] SHT40 RingBuffer FULL, data lost!\n");
+        } 
     }
     else
     {
-        printf("[SHT40 Callback] Data pointer is NULL, read failed.\n");
+        printf("[ERROR] SHT40 Callback] Data pointer is NULL, read failed.\n");
     }
 }
 
@@ -294,7 +297,7 @@ SHT40_Status_t SHT40_Port_InitDriver(bsp_sht40_driver_t *driver)
 
     return SHT40_inst(driver, &sht40_iic, &sht40_os_timebase, &sht40_timebase);
 }
-
+//将 Handler 输入接口与底层驱动和 OS 接口绑定，供 Handler 内部调用
  SHT40_HANDLER_Status_t SHT40_Port_BindHandlerInput(th_handler_input_interface_t *input, bsp_sht40_driver_t *driver)
 {
     if (input == NULL || driver == NULL) {
@@ -316,27 +319,20 @@ SHT40_Status_t SHT40_Port_InitDriver(bsp_sht40_driver_t *driver)
 
 /////////////////////////sht40_handler_start配置函数////////////////////////
 
-static th_handler_input_interface_t sht40_config;
-static bsp_sht40_driver_t g_sht40_driver;
-#if 1  //sht40_handler init
+
 
 void sht40_handler_start(void)
 {
-
        if (SHT40_Port_BindHandlerInput(&sht40_config, &g_sht40_driver) != SHT40_HANDLER_OK)
     {
-        printf("[g_sht40] bind failed!\r\n");
+        printf("[ERROR] SHT40 handler bind failed!\r\n");
         return;
-    }else {
-        printf("[g_sht40] bind success!\r\n");
     }
-
-    if (xTaskCreate(temp_humi_handler_thread, "sht40_hdl", 256, &sht40_config, 5, NULL) != pdPASS)
+    if (xTaskCreate(temp_humi_handler_thread, "sht40_hdl", BSP_SHT40_TASK_STK_SIZE, &sht40_config, 3, NULL) != pdPASS)
     {
-        printf("[g_sht40] task create failed!\r\n");
+        printf("[ERROR] SHT40 task create failed!\r\n");
         return;
     }
-
-    printf("[g_sht40] task inst success!\r\n");
 }
-#endif
+
+

@@ -1,290 +1,401 @@
-
 #include "app_task.h"
 #include "debug.h"
 #include "string.h"
-#include "sht40.h"
-#include "sht40_handler.h"
 #include "Middle_ring_buffer.h"
-#include "../bsp/usart_wifi_esp/usart_wifi_esp.h"
-#include "../bsp/bsp_MLX_90614/bsp_MLX_90614.h"
-#include "../bsp/bsp_MLX_90614/bsp_MLX_90614_handler.h"
-#include "system.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-#include "queue.h"
-#include "algorithm_1.h"
-#include "../bsp/bsp_MLX_90614/bsp_MLX_90614_port.h"
+#include "ch32v30x_iwdg.h"
+
+/* 控制本文件的调试打印：0=关闭，1=开启 */
+#ifndef APP_DEBUG_PRINT
+#define APP_DEBUG_PRINT 0
+#endif
+
+#if APP_DEBUG_PRINT
+#define APP_LOG(...)    printf(__VA_ARGS__)
+#else
+#define APP_LOG(...)    ((void)0)
+#endif
+
+// 传感器相关的 handler 和 port
+#include "sht40_handler.h"
 #include "../bsp/sht40/sht40_port.h"
-#include "../bsp/bsp_max_30102/bsp_max_30102_port.h"
+#include "../bsp/bsp_MLX_90614/bsp_MLX_90614_handler.h"
+#include "../bsp/bsp_MLX_90614/bsp_MLX_90614_port.h"
 #include "../bsp/bsp_max_30102/bsp_max_30102_handler.h"
-#include "../bsp/bsp_max_30102/bsp_max_30102_driver.h"
-/* 全局变量定义 */
+#include "../bsp/bsp_max_30102/bsp_max_30102_port.h"
+#include "../bsp/bsp_max_30102/bsp_max_30102_reg.h"
+#include "../bsp/bsp_a7670c/bsp_a7670c.h"
+#include "../bsp/usart_wifi_esp/usart_wifi_esp.h"
+#include "../bsp_rtc/bsp_rtc.h"
+#include "../bsp/bsp_tianwen/bsp_tianwen_reg.h"
+#include "../bsp/bsp_rtc/bsp_rtc.h"      // 解决 BSP_RTC_Init 报错
+
+#include "debug.h"
+#include "system.h"
+#include "lcd.h"      // 添加 LCD 头文件
+#include "touch.h"
+#include "ctpiic.h"
+#include <stdio.h>
+#include "lvgl.h"
+#include "lv_port_disp.h"
+#include "lv_port_indev.h"
+#include "lv_port_indev.h"
+
+#include "gui_guider.h"
+#include "events_init.h"
+
+
+//////////////////////////
 RingBuffer_t g_ring_buffer = {0};
 QueueHandle_t xUART_Queue = NULL;
 SemaphoreHandle_t xDMA_Sem = 0;
 SemaphoreHandle_t xBufferDataSemaphore = NULL;
-
+QueueHandle_t xSysCmdQueue = NULL; // 系统命令队列
+QueueHandle_t CmdQueue = NULL; // 系统命令队列
+QueueHandle_t sendtianwenQueue = NULL; // 天问通信命令队列
+QueueHandle_t sensor_data_lcd_queue = NULL; // 传感器数据队列
+SemaphoreHandle_t xGuiMutex = NULL; // LVGL 互斥锁，防止多任务并发访问 GUI
+SemaphoreHandle_t xSem_face_recog;// 人脸识别检测开始同步信号量
+SemaphoreHandle_t xSem_face_result_yes; // 人脸识别结果信号量(识别成功)
+SemaphoreHandle_t xSem_face_result_no; // 人脸识别结果信号量(识别失败)
+SemaphoreHandle_t xSem_face_add; // 人脸添加开始同步信号量
+SemaphoreHandle_t xSem_face_add_result; // 人脸添加结果同步信号量
+SemaphoreHandle_t xSem_Btn_Eat; // 吃药按钮按下同步信号量
 /* 任务句柄 */
 TaskHandle_t bspSensorTask_Handler;
 TaskHandle_t appTask_Handler;
 TaskHandle_t usartTask_Handler;
-/* 内部私有函数声明 */
-static void MAX30102_Key_Init(void);
-static void __attribute__((unused)) MAX30102_TestTask(void);
-static void SHT40_TestTask(void);
-static void __attribute__((unused)) MLX90614_TestTask(void);
-static void __attribute__((unused)) bsp_battery_task(void);
-static void __attribute__((unused)) sim800l_test_task(void);
-void bsp_sensor_task(void *pvParameters);
-void usart_task(void *pvParameters);
-void app_task(void *pvParameters);
+TaskHandle_t watchdogTask_Handler;
+TaskHandle_t tianwenTask_Handler;
+TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
 
 
-#include "bsp_max_30102_port.h"
+ extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
+ extern SystemCommand_t received_cmd;
+void check_medication_time(void); // 声明检查吃药时间的函数
+ // 定义吃药时间表
+AlarmSche my_meds[MAX_SCHE] = {
+      {20, 01},  
+      {20, 02}, 
+      {20, 03}   
+};
+
 void app_task(void *pvParameters)
 {
- 
+//主函数。逻辑函数，根据系统指令执行相应的操作
+    (void)pvParameters;
+    APP_LOG("\n[App] Smart Medicine Box Started\n");
+
+    //发送开机语音播报命令到天问模块
+    Tianwen_Packet_t tianwen_packet;
+    tianwen_packet.id = CMD_TX_BOOT_VOICE; // 定义一个新的指令，比如 CMD_TX_BOOT_VOICE
+    tianwen_packet.data_len = 0; // 没有额外数据(命令帧)
+    xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
+
+    //设置时间：
+    BSP_RTC_ModifyTime(2026, 5, 7, 21, 31, 55); // 设置初始时间为2026年3月2日00:00:00
+    //设置闹钟(已经设置就生效，所以放在主循环前面)
+    ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
+
+    //定义一个变量来跟踪当前检查的吃药时间索引
+   AppMsg_t msg;
     for (;;)
     {
-         
-        vTaskDelay(pdMS_TO_TICKS(1000));
+       
+        BaseType_t ret = xQueueReceive(xAppEventQueue, &msg, pdMS_TO_TICKS(10));
+
+        if (ret == pdPASS) 
+        {
+            // 收到具体事件，开始处理分支
+            switch (msg.event_id) 
+            {
+                case MSG_FACE_RECOG_START:// 人脸识别开始事件
+                    APP_LOG("[App] Event: Face recognition started\n");
+                    // 模拟：给系统自己发一个成功事件（实战中这应该由串口中断发）
+                    AppMsg_t sim_msg = { .event_id = MSG_FACE_RECOG_SUCCESS };
+                    xQueueSend(xAppEventQueue, &sim_msg, 0);
+                    break;
+
+                case MSG_FACE_RECOG_SUCCESS:// 人脸识别成功事件
+                    APP_LOG("[App] Event: Face recognition Success\n");
+                    tianwen_packet.id = CMD_TX_REGISTERED_USER; 
+                    xQueueSend(sendtianwenQueue, &tianwen_packet, 0); 
+                    break;
+
+                case MSG_FACE_RECOG_FAIL:// 人脸识别失败事件
+                    APP_LOG("[App] Event: Face recognition Fail\n");
+                    tianwen_packet.id = CMD_TX_UNREGISTERED; 
+                    xQueueSend(sendtianwenQueue, &tianwen_packet, 0); 
+                    break;
+
+                case MSG_BTN_EAT_PRESSED:// 吃药按钮按下事件
+                    APP_LOG("[App] Event: User pressed EAT button\n");
+                    // 用户按键后，主动触发一次时间检查
+                    msg.event_id = MSG_CHECK_MED_TIME;
+                    xQueueSend(xAppEventQueue, &msg, 0);
+                    break;
+
+                case MSG_CHECK_MED_TIME:// 检查吃药时间事件（定时触发或者按键触发）
+                    APP_LOG("[App] Event: Checking Medication Time\n");
+                    check_medication_time(); // 调用下面封装的函数
+                    break;
+
+                // ... 处理其他事件 ...
+                default:
+                    break;
+            }
+        }
+        
+        /* 喂狗：通知 watchdog_task */
+        if (watchdogTask_Handler != NULL) {
+            xTaskNotifyGive(watchdogTask_Handler);
+        }
+    
+        vTaskDelay(pdMS_TO_TICKS(20)); // 每20ms检查一次事件队列和喂一次狗
     }
 }
 
+
+void lcd_task(void *pvParameters)
+{
+    for(;;) {
+        if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdPASS) {
+            lv_tick_inc(10);      // 先递增 LVGL tick（与 10ms 任务周期匹配）
+            lv_timer_handler();  // 再处理 LVGL 定时器任务
+            xSemaphoreGive(xGuiMutex);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void sensor_lcd_task(void *pvParameters)
+{
+    Tianwen_Packet_t sensor_lcd_packet;
+    RTC_TimeTypeDef current_time;// 用于显示时间
+    (void)pvParameters;
+    for(;;)
+    {
+        if(xQueueReceive(sensor_data_lcd_queue, &sensor_lcd_packet, pdMS_TO_TICKS(10)) == pdPASS) {
+            
+            switch(sensor_lcd_packet.id)
+            {
+                case SENSOR_ID_HEART_RATE_SPO2://cmd:09
+                {
+                    // 解析心率和血氧数据，更新 LCD 显示
+                    uint16_t heart_rate = (sensor_lcd_packet.data[0] << 8) 
+                                        | sensor_lcd_packet.data[1];
+                    uint16_t spo2 = (sensor_lcd_packet.data[2] << 8) 
+                                  | sensor_lcd_packet.data[3];
+
+                    // 拆分整数和小数部分 (心率X100，血氧X100)
+                    int hr_int = heart_rate / 100;
+                    int hr_dec = heart_rate % 100;
+                    int spo2_int = spo2 / 100;
+                    int spo2_dec = spo2 % 100;
+
+                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
+                        lv_label_set_text_fmt(guider_ui.screen_label_5, "%d.%02d bpm", hr_int, hr_dec);
+                        lv_label_set_text_fmt(guider_ui.screen_label_6, "%d.%02d %%", spo2_int, spo2_dec);
+                        xSemaphoreGive(xGuiMutex);
+                    }
+                    break;
+                }
+                case SENSOR_ID_MLX_TEMP_BOTH://cmd:08
+                {
+                    // 体温数据，更新 LCD 显示
+                    uint16_t temp = (sensor_lcd_packet.data[0] << 8)
+                                  | sensor_lcd_packet.data[1];
+
+                    int temp_int = temp / 100;
+                    int temp_dec = temp % 100;
+
+                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
+                        lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                        xSemaphoreGive(xGuiMutex);
+                    }
+                    break;    
+                }  
+                case SENSOR_ID_TEMPERATURE_HUMIDITY://cmd:10
+                {
+                    uint16_t temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
+                    uint16_t humi = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
+
+                    // 拆分整数和小数部分 (假设 temp 是 2550 代表 25.50)
+                    int temp_int = temp / 100;
+                    int temp_dec = temp % 100;
+                    int humi_int = humi / 100;
+                    int humi_dec = humi % 100;
+
+                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
+                        lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                        lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
+                        xSemaphoreGive(xGuiMutex);
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        // 定期更新时间显示（需持有 GUI 互斥锁）
+        BSP_RTC_GetDateTime(&current_time);
+        if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
+            lv_label_set_text_fmt(guider_ui.screen_label_4,
+             "%02d:%02d:%02d", current_time.hour,
+             current_time.min, current_time.sec);
+
+            lv_label_set_text_fmt(guider_ui.screen_label_3,
+             "%04d/%02d/%02d", current_time.year,
+             current_time.month, current_time.day);
+
+            lv_label_set_text(guider_ui.screen_label_2, "1");
+            xSemaphoreGive(xGuiMutex);
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }   
+}
 void bsp_sensor_task(void *pvParameters)
 {
-    (void)pvParameters;
-
-#if (SENSOR_RUN_MODE == SENSOR_MODE_MAX30102)
-    printf("[bsp_sensor_task] Run mode: MAX30102\n");
-    MAX30102_TestTask();
-#elif (SENSOR_RUN_MODE == SENSOR_MODE_SHT40)
-    printf("[bsp_sensor_task] Run mode: SHT40\n");
-    SHT40_TestTask();
-#elif(SENSOR_RUN_MODE == SENSOR_MODE_BATTERY_CHECK)
-    printf("[bsp_sensor_task] Run mode: Battery Check\n");
-    bsp_battery_task();
-#elif (SENSOR_RUN_MODE == SENSOR_MODE_MLX90614)
-    printf("[bsp_sensor_task] Run mode: MLX90614\n");
-    MLX90614_TestTask();
-#elif(SENSOR_RUN_MODE == SENSOR_MODE_SIM800L)
-    printf("[bsp_sensor_task] Run mode: SIM800L\n");
-    sim800l_test_task();
-#else
-    printf("[bsp_sensor_task] Run mode: UNKNOWN\n");
-    for (;;)
+    A7670C_Init();
+    for(;;)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // 阻塞等待系统指令（语音触发）
+        if (xQueueReceive(xSysCmdQueue, &received_cmd, portMAX_DELAY) == pdPASS)
+        {
+            switch (received_cmd)
+            {
+                case CMD_MEASURE_HR_SPO2:
+                    APP_LOG("[App] Received CMD: Measure Heart Rate & SpO2\n");
+                    if (g_max_handler_instance != NULL) {
+                        max_event_t max_evt;
+                        max_evt.event_type       = max_event_calc_hr_spo2;
+                        max_evt.lifetime         = 500;
+                        max_evt.sample_count     = MAX30102_DATA_NUM;
+                        max_evt.pf_calc_callback = on_hr_spo2_calculated;
+                        max30102_handler_send_event(g_max_handler_instance, &max_evt);
+                    }
+                    else {
+                        printf("[App] MAX30102 Handler not ready!\n");
+                    }
+                    break;
+
+                case CMD_MEASURE_BODY_TEMP:
+                    APP_LOG("[App] Received CMD: Measure Body Temperature\n");
+                    if (g_handler_instance != NULL) {
+                        th_event_t mlx_evt;
+                        mlx_evt.event_type = th_event_body_temp;
+                        mlx_evt.lifetime = 500;
+                        mlx_evt.pf_callback = MLX90614_Port_OnDataReady;
+                        bsp_th_handler_t *h_mlx = (bsp_th_handler_t *)g_handler_instance;
+                        h_mlx->os_handler_instance->pf_os_queue_put(h_mlx->event_queue_handler, &mlx_evt, 10);
+                    }
+                    break;
+
+                case CMD_MEASURE_ENV_TEMP_HUMI:
+                    APP_LOG("[App] Received CMD: Measure Env Temp & Humidity\n");
+                    if (g_temp_humi_handler_instance != NULL) {
+                        temp_humi_event_t sht_evt;
+                        sht_evt.event_type = TEMP_HUMI_EVENT_BOTH;
+                        sht_evt.lifetime = 500;
+                        sht_evt.pf_callback = on_SHT40_DATA_ready;
+                        bsp_temp_humi_handler_t *h_sht = (bsp_temp_humi_handler_t *)g_temp_humi_handler_instance;
+                        h_sht->os_interface->os_queue_put(h_sht->event_queue_handle, &sht_evt, 10);
+                    }
+                    break;
+
+                case CMD_SEND_SMS_ALERT:
+                    APP_LOG("[App] Received CMD: Send SMS Alert\n");
+                    if (!a7670c_ready) {
+                        printf("[App] A7670C not ready, cannot send SMS!\n");
+                        break;
+                    }
+                    A7670C_WakeUp();
+                    APP_LOG("--- Alert triggered: Sending SMS ---\r\n");
+                    A7670C_SendSMS_Auto("18135183446", "请按时服药！");
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    A7670C_EnterSleep();
+                    APP_LOG("--- SMS sent, module sleeping ---\r\n");
+                    break;
+
+                default:
+                    break;
+            }
+        }
     }
-#endif
 }
 
+/* -------------------------------------------------------------
+ * 3. WIFI 数据上传任务
+ * ------------------------------------------------------------- */
 void usart_task(void *pvParameters)
 {
     Packet_t packet;
-
     (void)pvParameters;
-
     for (;;)
     {
-        while (RingBuffer_isEmpty(&g_ring_buffer) == 0xAF)
+        while (RingBuffer_isEmpty(&g_ring_buffer) == 0x00)
         {
             if (RingBuffer_pop(&g_ring_buffer, &packet) == 0xAF)
             {
-                if (USART_WIFI_ESP_Send(&packet) != USART_WIFI_ESP_OK)
-                {
+                if (USART_WIFI_ESP_Send(&packet) != USART_WIFI_ESP_OK) {
                     printf("[usart_task] Failed to send packet to ESP8266\n");
                 }
             }
-            else
-            {
-                printf("[usart_task] Failed to pop packet\n");
-            }
         }
-
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}
-#if 1         //sht40_test
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-#include "sht40_handler.h"
-#include "sht40_port.h"
-
-static void  SHT40_TestTask(void)
-{
-    //定义了事件
-    temp_humi_event_t event;
-    SHT40_HANDLER_Status_t RET=SHT40_HANDLER_OK;
-    printf("[SHT40_TestTask] task start!\r\n");
-    for(;;)
-    {
-        bsp_temp_humi_handler_t *handler = (bsp_temp_humi_handler_t *)g_temp_humi_handler_instance;
-        event.event_type=TEMP_HUMI_EVENT_BOTH;
-        event.lifetime=1000;
-        event.pf_callback=on_SHT40_DATA_ready;
-        if(handler!=NULL&&
-           handler->os_interface!=NULL&&
-           handler->event_queue_handle!=NULL)
-        {
-            RET=handler->os_interface->os_queue_put(
-                handler->event_queue_handle,
-                &event,
-                10);
-            if(RET!=SHT40_HANDLER_OK)
-            {
-                printf("[SHT40_TestTask] put queue is failed\r\n");
-            }
-            else
-            {
-                printf("[SHT40_TestTask] queue put ok\r\n");
-            }
-        }
-        else
-        {
-             printf("[SHT40_TestTask] wait handler mount: inst=0x%08lX os_if=0x%08lX queue=0x%08lX\r\n",
-                     (unsigned long)(uint32_t)handler,
-                     (unsigned long)(uint32_t)(handler ? handler->os_interface : NULL),
-                     (unsigned long)(uint32_t)(handler ? handler->event_queue_handle : NULL));
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-}
-
-#endif
-
-#if 1        //mlx90614_test_driver
-static void MLX90614_TestTask(void)
-{
-   //定义了事件
-    th_event_t event;
-    MLX90614_HANDLER_Status_t RET=MLX90614_HANDLER_OK;
-    printf("[MLX90614_TestTask] task start!\r\n");
-
-    for(;;)
-    {
-        bsp_th_handler_t *handler = (bsp_th_handler_t *)g_handler_instance;
-        event.event_type=th_event_body_temp;
-        event.lifetime=1000;
-        event.pf_callback=MLX90614_Port_OnDataReady;
-        if(handler!=NULL&&
-           handler->os_handler_instance!=NULL&&
-           handler->event_queue_handler!=NULL)
-        {
-            RET=handler->os_handler_instance->pf_os_queue_put(
-                handler->event_queue_handler,
-                &event,
-                10);
-            if(RET!=MLX90614_HANDLER_OK)
-            {
-                printf("[MLX90614_TestTask] put queue is failed\r\n");
-            }
-            else
-            {
-                printf("[MLX90614_TestTask] queue put ok\r\n");
-            }
-        }
-        else
-        {
-             printf("[MLX90614_TestTask] wait handler mount: inst=0x%08lX os_if=0x%08lX queue=0x%08lX\r\n",
-                     (unsigned long)(uint32_t)handler,
-                     (unsigned long)(uint32_t)(handler ? handler->os_handler_instance : NULL),
-                     (unsigned long)(uint32_t)(handler ? handler->event_queue_handler : NULL));
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+         /* 喂狗：通知 watchdog_task */
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
-#endif
-
-#if 1      //MAX30102_test_TASK
-static void MAX30102_TestTask(void)
-{
-   max_event_t event;
-    printf("[App Task] 智能药盒健康监测任务已启动...\n");
-    printf("\n[App] === 准备开始新的健康测量 ===\n");
-    printf("[App] 提示：请将手指平稳放置在传感器上...\n");
-    // 给系统留一点稳定时间
-    vTaskDelay(pdMS_TO_TICKS(4000));    // 4秒后开始测量
-
-    for (;;)
-    {
-        // 1. 构造事件
-        event.event_type       = max_event_calc_hr_spo2; // 触发“采集+计算”流程
-        event.lifetime         = 1000;                   // 队列发送超时时间
-        event.sample_count     = 500;                    // 采集 500 个点 (约 5 秒数据)
-        event.pf_calc_callback = on_hr_spo2_calculated;  // 挂载计算结果回调
-
-        // 3. 发送指令给 Handler
-        if (g_max_handler_instance != NULL) 
-        {
-            MAX30102_HANDLER_Status_t ret = max30102_handler_send_event(g_max_handler_instance, &event);
-            
-            if (ret == MAX_HANDLER_OK) {
-                printf("事件发送成功，正在采集数据...\n");
-            } else {
-                printf("事件发送失败，错误码: %d\n", ret);
-            }
-        }
-        else {
-            printf("错误:MAX30102 处理器未就绪！\n");
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(15000)); // 10秒后再次测量，实际使用中可以根据需求调整频率
-    }
-    // for(;;)
-    // {
-    //     vTaskDelay(pdMS_TO_TICKS(1000));
-    // }
-}
-#endif
-
-static void sim800l_test_task(void)
-{
-
-    uint8_t ok;
-    for (;;) {
-        bsp_sim800l_init(9600U);
-        printf("[SIM800L] probe baud=9600\n");
-        ok = SIM800L_SendAT("AT", "OK", 1200);
-        printf("[SIM800L] AT@9600: %s\n", ok ? "OK" : "TIMEOUT");
-        if (ok == 0U) {
-            printf("[SIM800L] no valid response on 9600 baudrate\n");
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-}
-
-#if 1       //battery_check_task
-static void bsp_battery_task(void)
-{
-    
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-}
-#endif
-
-/* ------------------- FreeRTOS 钩子函数 ------------------- */
-
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
-{
-    taskDISABLE_INTERRUPTS();
-    printf("[Error] Stack Overflow: %s\n", pcTaskName);
-    while (1)
-    {
-    }
-}
 
 void vApplicationMallocFailedHook(void)
 {
     taskDISABLE_INTERRUPTS();
-    printf("[Error] Malloc Failed\n");
-    while (1)
+    APP_LOG("[Error] Malloc Failed\n");
+    while (1){}
+}
+
+/* 看门狗喂狗任务：定期喂独立看门狗，防止系统卡死 */
+void watchdog_task(void *pvParameters)
+{
+    (void)pvParameters;
+    for(;;)
     {
+        // 等待 app_task 的喂狗通知，如果在 2000ms 内等不到，说明 app_task 卡死了
+        // 注意：不等待通知直接喂狗掩盖了死机，这里我们恢复通知等待机制
+        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000))) {
+            IWDG_ReloadCounter();
+        } else {
+            // 超时未收到通知，可能是卡死了，不喂狗，让系统复位
+            APP_LOG("[Watchdog] Timeout waiting for App Task notification!\r\n");
+        }
+         vTaskDelay(pdMS_TO_TICKS(20));
+    }
+
+}
+
+
+//// 检查吃药时间的函数，封装成一个独立函数，方便在多个地方调用（定时检查和用户按键检查）
+void check_medication_time(void) {
+    RTC_TimeTypeDef current_time;
+    BSP_RTC_GetDateTime(&current_time);
+    
+    int16_t curr_total_mins = current_time.hour * 60 + current_time.min;
+
+    for (int i = 0; i < MAX_SCHE; i++) {
+        int16_t target_total_mins = my_meds[i].hour * 60 + my_meds[i].min;
+        int16_t diff_mins = curr_total_mins - target_total_mins;
+
+        Tianwen_Packet_t tw_pkt;
+        tw_pkt.data_len = 0;
+
+        if (diff_mins >= -10 && diff_mins <= 10) {
+            tw_pkt.id = CMD_TX_TIME_TO_EAT; 
+            xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
+            break; 
+        } else if (diff_mins < -10) {
+            tw_pkt.id = CMD_TX_NOT_TIME_TO_EAT; 
+            xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
+            break; 
+        }
     }
 }

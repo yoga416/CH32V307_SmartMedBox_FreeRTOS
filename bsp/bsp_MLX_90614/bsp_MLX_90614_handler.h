@@ -9,6 +9,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+
+#include "bsp_MLX_90614.h"
 /************************************DEFINES************************************/
 #define MLX90614_HANDLER_DEBUG  1
 /************************************TYPEDEFS***********************************/

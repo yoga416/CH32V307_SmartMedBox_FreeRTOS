@@ -60,6 +60,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "debug.h"
+
 typedef uint8_t byte;
 typedef bool boolean;
 #include "algorithm_1.h"
@@ -114,7 +116,7 @@ void maxim_heart_rate_and_oxygen_saturation(uint32_t *pun_ir_buffer, int32_t n_i
 */
 {
   if (s_algorithm1_banner_printed == 0U) {
-    printf("[ALGO] algorithm_1 active\n");
+    APP_LOG("[ALGO] algorithm_1 active\n");
     s_algorithm1_banner_printed = 1U;
   }
 

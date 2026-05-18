@@ -17,18 +17,21 @@
 #define MLX90614_REG_TOBJ1        0x07 /**< Object 1 temperature register address (Tobj1) */
 /** @} */
 
-/** * @name GPIO Pin Definitions
- * @{ 
- */
-#define MLX_SDA_PIN               GPIO_Pin_11 /**< SDA Pin for software I2C */
-#define MLX_SCL_PIN               GPIO_Pin_10 /**< SCL Pin for software I2C */
-/** @} */
 
-/* I2C Configuration for MLX90614 */
-#define MLX_I2C                   I2C2
-#define MLX_I2C_TIMEOUT           60000U /**< Timeout threshold for I2C operations */
+// 其他相关定义
+//温湿度阈值
+#define MLX90614_TEMP_MIN_C       10.0f /**< Minimum valid temperature in Celsius */
+#define MLX90614_TEMP_MAX_C       80.0f /**< Maximum valid temperature in Celsius */
 
+/* ==================================================================== */
+/* =============== 软件 I2C 引脚配置 (替换为 PB6 和 PB7) ================ */
+/* ==================================================================== */
+#define MLX_SCL_PORT   GPIOB
+#define MLX_SCL_PIN    GPIO_Pin_6
+#define MLX_SDA_PORT   GPIOB
+#define MLX_SDA_PIN    GPIO_Pin_7
 
-
+#define MLX_RCC_CMD    RCC_APB2PeriphClockCmd
+#define MLX_RCC_PORT   RCC_APB2Periph_GPIOB  // 都在GPIOB，时钟不用改
 
 #endif

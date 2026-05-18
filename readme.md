@@ -1,0 +1,2 @@
+-  [smartmedBox_v1.11_5.1_update](..\smartmedBox_v1.11_5.1_update) 
+- 这一版是为了加上lcd和lvgl的所改进的一版。

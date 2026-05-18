@@ -25,7 +25,7 @@
 #define REG_LED2_PA              0x0D 
 #define REG_PART_ID              0xFF 
 
-#define MAX30102_FILTER_WINDOW   20
+#define MAX30102_FILTER_WINDOW   8
 
 typedef enum {
     MAX_DRIVER_OK      = 0,

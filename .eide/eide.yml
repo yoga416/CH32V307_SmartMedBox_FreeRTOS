@@ -44,13 +44,23 @@ targets:
         - hal
         - bsp/sht40
         - bsp/usart_wifi_esp
+        - bsp/bsp_tianwen
         - middlesware/Ring_buffer
-        - middlesware/DMA
+        - middlesware/CRC8
         - bsp/bsp_max_30102
         - bsp/bsp_MLX_90614
-        - bsp_SIM800L
+        - bsp/bsp_rtc
+        - bsp/bsp_lcd_lvgl
+        - bsp/bsp_lcd_lvgl/lvgl
+        - bsp/bsp_lcd_lvgl/General_File/driver/LCD
+        - bsp/bsp_lcd_lvgl/General_File/driver/TOUCH
+        - bsp/bsp_lcd_lvgl/General_File
+        - bsp/bsp_lcd_lvgl/General_File/app/generated
+        - bsp/bsp_lcd_lvgl/General_File/app/custom
+        - bsp/bsp_lcd_lvgl/General_File/driver/w25q
+        - bsp/bsp_lcd_lvgl/lvgl/porting
+        - bsp/bsp_lcd_lvgl/General_File/driver/SPI
         - middlesware/MAX_30102_algorithm
-        - User/app_task.h
       libList: []
     excludeList:
       - FreeRTOS/portable/Common/mpu_wrappers.c
@@ -91,7 +101,7 @@ targets:
           linker:
             $outputTaskExcludes:
               - .bin
-            LD_FLAGS: -nostartfiles --specs=nano.specs --specs=nosys.specs
+            LD_FLAGS: -nostartfiles --specs=nano.specs --specs=nosys.specs -flto
             LIB_FLAGS: -lm
             output-format: elf
             remove-unused-input-sections: true

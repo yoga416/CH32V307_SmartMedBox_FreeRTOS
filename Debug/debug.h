@@ -45,6 +45,17 @@ void Delay_Ms (uint32_t n);
 void USART_Printf_Init(uint32_t baudrate);
 void SDI_Printf_Enable(void);
 
+/* Project-level logging control: 0=disable info logs, 1=enable */
+#ifndef APP_DEBUG_PRINT
+#define APP_DEBUG_PRINT 1
+#endif
+
+#if APP_DEBUG_PRINT
+#define APP_LOG(...)    printf(__VA_ARGS__)
+#else
+#define APP_LOG(...)    ((void)0)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

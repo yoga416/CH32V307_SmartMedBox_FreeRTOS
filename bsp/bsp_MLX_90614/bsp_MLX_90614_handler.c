@@ -28,18 +28,16 @@ static MLX90614_HANDLER_Status_t th_handler_init(
 
       if (handler_instance == NULL)
       {
-#if MLX90614_HANDLER_DEBUG
             printf("handler_instance pointer is null\r\n");
-#endif
+
             return MLX90614_HANDLER_ERROR;
       }
 
       if (handler_instance->os_handler_instance == NULL ||
           handler_instance->os_handler_instance->pf_os_create_queue == NULL)
       {
-#if MLX90614_HANDLER_DEBUG
             printf("os_create_queue pointer is null\r\n");
-#endif
+
             return MLX90614_HANDLER_ERROR;
       }
 
@@ -47,9 +45,9 @@ static MLX90614_HANDLER_Status_t th_handler_init(
           handler_instance->iic_driver_interface == NULL ||
           handler_instance->timebase_interface == NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
             printf(" [mlx_90614] dependency instance is NULL!\r\n");
-#endif
+
             return MLX90614_HANDLER_ERROR;
       }
 
@@ -60,9 +58,9 @@ static MLX90614_HANDLER_Status_t th_handler_init(
                   &handler_instance->event_queue_handler);
       if (RET_dr != MLX90614_OK || handler_instance->event_queue_handler == NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
             printf("failed to queue_create!\r\n");
-#endif
+
             return MLX90614_HANDLER_ERROR;
       }
 
@@ -76,9 +74,9 @@ static MLX90614_HANDLER_Status_t th_handler_init(
             handler_instance->timebase_interface);
       if (RET_dr != MLX90614_OK)
       {
-#if MLX90614_HANDLER_DEBUG
+
             printf(" [mlx_90614] BSP_MLX90614 INIT FAILED!\r\n");
-#endif
+
             return MLX90614_HANDLER_ERROR;
       }
 
@@ -94,22 +92,19 @@ static MLX90614_HANDLER_Status_t th_handler_init(
   {
 
       MLX90614_HANDLER_Status_t RET=MLX90614_HANDLER_OK;
-#if MLX90614_HANDLER_DEBUG
-      printf("th_handler_inst starting!\r\n");
-#endif
 
       if(handler_instance==NULL||input_instance==NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_inst] fail to insatnce pointer is NULL!\r\n");
-#endif  
+
       return MLX90614_HANDLER_ERROR;   
       }
       if(input_instance->timebase_interface==NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_inst] fail to insatnce pointer is NULL!\r\n");
-#endif  
+
       return MLX90614_HANDLER_ERROR;     
 }
       //挂载结构体
@@ -127,25 +122,22 @@ static MLX90614_HANDLER_Status_t th_handler_init(
       if(RET!=MLX90614_HANDLER_OK)
 
       {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_inst] fail to handler init!\r\n");
-#endif       
+     
       return MLX90614_HANDLER_ERROR;
       }
 
       //更新全局变量
       if(handler_instance->private_data==NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_inst] private_data pointer is NULL!\r\n");
-#endif
+
       return MLX90614_HANDLER_ERROR;
       }
       handler_instance->private_data->is_initited=HANDLER_INITIATED;
-      _mount_handler_mlx(handler_instance);
-#if MLX90614_HANDLER_DEBUG
-      printf("[handler_inst] success to inst!\r\n");
-#endif  
+      _mount_handler_mlx(handler_instance);  
       return MLX90614_HANDLER_OK;
   }
 
@@ -160,24 +152,24 @@ MLX90614_HANDLER_Status_t th_handler_send_event(
 //检查指针
 if(handler_instance==NULL||event==NULL)
 {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_event] pointer is null!\r\n");
-#endif  
+ 
       return MLX90614_HANDLER_ERROR;     
 }
 if(handler_instance->private_data==NULL)
 {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_event] private_data is null!\r\n");
-#endif
+
       return MLX90614_HANDLER_ERROR;
 }
 //检查是否初始化
 if(handler_instance->private_data->is_initited!=HANDLER_INITIATED)
 {
-#if MLX90614_HANDLER_DEBUG
+
       printf("[handler_event] handler is not inited!\r\n");
-#endif 
+
       return MLX90614_HANDLER_ERROR;   
 }
 //记录当前时间戳
@@ -232,20 +224,15 @@ switch (event->event_type)
                   handler_instance->last_body_tick=current_tick;
             }
       }
-      else
-      {
-#if MLX90614_HANDLER_DEBUG
-            printf("the lifetime is good, not renew data\r\n");
-#endif
-      }
+     
       if(event->pf_callback!=NULL)
       {
       event->pf_callback(surface_temp,body_temp);
       }
       else{
-#if MLX90614_HANDLER_DEBUG
+
             printf("pf_callback is null\r\n");
-#endif  
+
 return  MLX90614_HANDLER_ERROR;        
       }
       return MLX90614_HANDLER_OK;
@@ -270,9 +257,9 @@ void th_handler_task(void * argument)
       //检查
       if(input_instance==NULL)
       {
-#if MLX90614_HANDLER_DEBUG
+
             printf("[mlx_handler_thread]  instance is null\r\n");
-#endif  
+
             return;
       }
       hander_instance.mlx90614_instance = &mlx_driver;
@@ -282,16 +269,10 @@ void th_handler_task(void * argument)
       RET_handler=th_handler_inst(&hander_instance,input_instance);
       if(RET_handler!=MLX90614_HANDLER_OK)
       {
-#if MLX90614_HANDLER_DEBUG
+
             printf("[mlx_handler_thread]  failed to inst\r\n");
-#endif  
+
             return;
-      }
-      else if(RET_handler==MLX90614_HANDLER_OK)
-      {
-#if MLX90614_HANDLER_DEBUG
-            printf("[mlx_handler_thread] success to  thread  start!\r\n");
-#endif        
       }
 
       for(;;)

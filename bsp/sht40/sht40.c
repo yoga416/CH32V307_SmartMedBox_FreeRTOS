@@ -45,7 +45,6 @@ static SHT40_Status_t sht40_read_data(bsp_sht40_driver_t *const p_sht40_instance
     }
     
     iic_driver_interface_t *i2c = p_sht40_instance->p_iic_interface;
-
     /* --- 第一阶段：发送测量指令 --- */
     i2c->pf_iic_start(NULL);
     if (i2c->pf_iic_send_byte(NULL, SHT40_I2C_ADDRESS_WRITE) != SHT40_OK ||
@@ -87,7 +86,7 @@ static SHT40_Status_t sht40_read_data(bsp_sht40_driver_t *const p_sht40_instance
         }
     }   
     i2c->pf_iic_stop(NULL);
-
+    // 恢复任务调度，退出临界区
     /* --- 第四阶段：物理量转换 --- */
     if (temperature) {
         uint16_t t_ticks = ((uint16_t)buf[0] << 8) | buf[1];

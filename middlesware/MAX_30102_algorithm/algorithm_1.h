@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
+#include "bsp_max_30102_reg.h"
 typedef uint8_t byte;
 typedef bool boolean;
 
@@ -14,8 +14,8 @@ typedef bool boolean;
 #define false 0
 #endif
 
-#define FS 46
-#define MAX30102_TARGET_SAMPLES 500
+#define FS 100				// 100Hz 采样率
+#define MAX30102_TARGET_SAMPLES MAX30102_DATA_NUM
 #define BUFFER_SIZE (MAX30102_TARGET_SAMPLES)
 #define MA4_SIZE 4
 #define BUFFER_SIZE_MA4 (BUFFER_SIZE - MA4_SIZE)

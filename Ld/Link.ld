@@ -12,21 +12,18 @@ MEMORY
 */
 /**/
 	/* 修改为 256K Flash 和 64K RAM */
-FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 256K
-RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 64K
+FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 224K
+RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 96K
     
-/* CH32V30x_D8C - CH32V307VC-CH32V307WC-CH32V307RC-CH32V305CC
-   CH32V30x_D8 - CH32V303VC-CH32V303RC
-   FLASH + RAM supports the following configuration
-   For specific choices, please refer :CH32FV2x_V3xRM.PDF\Table 32-3
+/*
    FLASH-192K + RAM-128K
    FLASH-224K + RAM-96K
    FLASH-256K + RAM-64K  
    FLASH-288K + RAM-32K  
    FLASH-128K + RAM-192K  
-
-	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 288K
-	RAM (xrw) : ORIGIN = 0x20000000, LENGTH = 32K*/
+   //要在链接脚本中修改 FLASH 和 RAM 的大小，以适应不同的芯片型号和应用需求。
+   并且在wch-linitity中选择对应的芯片型号，以确保正确的内存映射和资源分配。
+*/
 }
 
 

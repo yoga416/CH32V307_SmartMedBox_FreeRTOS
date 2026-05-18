@@ -23,35 +23,26 @@ typedef enum {
     MLX90614_TIMEOUT       = 3  /**< I2C bus timeout occurred */
 } MLX90614_Status_t;
 
-#ifndef HARDWARE_IIC
-//定义iic的结构体
+// 将原来的 mlx_iic_driver_instance_t 替换为以下：
 typedef struct{
-MLX90614_Status_t (*pf_iic_init)        (void *);
-MLX90614_Status_t (*pf_iic_deinit)      (void *);
-MLX90614_Status_t (*pf_iic_start)       (void *);
-MLX90614_Status_t (*pf_iic_stop)        (void *);
-MLX90614_Status_t (*pf_iic_send_ack)    (void *);
-MLX90614_Status_t (*pfiic_send_no_ack)  (void *);
-MLX90614_Status_t (*pf_iic_wait_ack)    (void *);
-MLX90614_Status_t (*pf_iic_send_byte)   (void *,const uint8_t );
-MLX90614_Status_t (*pf_iic_rec_byte)    (void *,uint8_t * const);
- // 进入临界区和退出临界区的函数指针
+    MLX90614_Status_t (*pf_iic_init)        (void *);
+    MLX90614_Status_t (*pf_iic_deinit)      (void *);
+    
+    // 👇 新增的 3 个软件 IIC 必备指针
+    MLX90614_Status_t (*pf_iic_start)       (void *);
+    MLX90614_Status_t (*pf_iic_stop)        (void *);
+    MLX90614_Status_t (*pf_iic_wait_ack)    (void *);
+
+    MLX90614_Status_t (*pf_iic_send_ack)    (void *);
+    MLX90614_Status_t (*pfiic_send_no_ack)  (void *);
+    MLX90614_Status_t (*pf_iic_send_byte)   (void *,const uint8_t );
+    MLX90614_Status_t (*pf_iic_rec_byte)    (void *,uint8_t * const);
+
+    // 进入临界区和退出临界区的函数指针
     void (*pf_enter_critical)(void); 
     void (*pf_exit_critical) (void);
 }mlx_iic_driver_instance_t;
-#else
-typedef struct{
-MLX90614_Status_t (*pf_iic_init)        (void *);
-MLX90614_Status_t (*pf_iic_deinit)      (void *);
-MLX90614_Status_t (*pf_iic_send_ack)    (void *);
-MLX90614_Status_t (*pfiic_send_no_ack)  (void *);
-MLX90614_Status_t (*pf_iic_send_byte)   (void *,const uint8_t );
-MLX90614_Status_t (*pf_iic_rec_byte)    (void *,uint8_t * const);
- // 进入临界区和退出临界区的函数指针
-    void (*pf_enter_critical)(void); 
-    void (*pf_exit_critical) (void);
-}mlx_iic_driver_instance_t;
-#endif
+
 //case timebase_instance
 typedef struct {
     uint32_t (*pf_get_count)(void *);
@@ -71,7 +62,7 @@ typedef struct {
     mlx_iic_driver_instance_t  *p_iic_instance;
     mlx_timebase_interface_t   *p_timebase_instance;
     #ifdef OS_SUPPORTING
-    mlx_os_timebase_interface_t  *p_os_timebase_instacne;
+    mlx_os_timebase_interface_t  *p_os_timebase_instance;
     #endif
 
     MLX90614_Status_t (*pf_init)(void *);
@@ -89,7 +80,7 @@ MLX90614_Status_t bsp_mlx_90614_inst(
             bsp_mlx90614_driver_t * const pf_driver,
              mlx_iic_driver_instance_t  *p_iic_instance,
     #ifdef OS_SUPPORTING
-    mlx_os_timebase_interface_t  *p_os_timebase_instacne,
+    mlx_os_timebase_interface_t  *p_os_timebase_instance,
     #endif
     mlx_timebase_interface_t   *p_timebase_instance
 );

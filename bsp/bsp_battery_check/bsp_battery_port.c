@@ -4,9 +4,9 @@
 #include "bsp_battery_handler.h"
 #include <stdlib.h>
 
-#define BAT_ADC_CH             ADC_Channel_4       
+#define BAT_ADC_CH             ADC_Channel_0       
 #define BAT_ADC_GPIO_PORT      GPIOA
-#define BAT_ADC_GPIO_PIN       GPIO_Pin_4          
+#define BAT_ADC_GPIO_PIN       GPIO_Pin_0          
 
 // 高精度采样配置
 #define BAT_SAMPLE_COUNT       50

@@ -44,7 +44,13 @@ void Delay_Us(uint32_t n)
 {
     uint32_t i;
 
+    /* 保存 FreeRTOS 的 SysTick 配置，延时结束后恢复 */
+    uint32_t saved_CTLR = SysTick->CTLR;
+    uint64_t saved_CMP  = SysTick->CMP;
+
+    SysTick->CTLR &= ~(1 << 0);
     SysTick->SR &= ~(1 << 0);
+    SysTick->CNT = 0; // BUGFIX: MUST BE RESET OR IT HANGS
     i = (uint32_t)n * p_us;
 
     SysTick->CMP = i;
@@ -53,7 +59,11 @@ void Delay_Us(uint32_t n)
 
     while((SysTick->SR & (1 << 0)) != (1 << 0))
         ;
+
+    /* 恢复 FreeRTOS 的 SysTick 配置 */
     SysTick->CTLR &= ~(1 << 0);
+    SysTick->CMP  = saved_CMP;
+    SysTick->CTLR = saved_CTLR;
 }
 
 /*********************************************************************
@@ -69,16 +79,25 @@ void Delay_Ms(uint32_t n)
 {
     uint32_t i;
 
+    /* 保存 FreeRTOS 的 SysTick 配置，延时结束后恢复 */
+    uint32_t saved_CTLR = SysTick->CTLR;
+    uint64_t saved_CMP  = SysTick->CMP;
+
+    SysTick->CTLR &= ~(1 << 0);
     SysTick->SR &= ~(1 << 0);
+    SysTick->CNT = 0; // BUGFIX: MUST BE RESET OR IT HANGS
     i = (uint32_t)n * p_ms;
 
     SysTick->CMP = i;
     SysTick->CTLR |= (1 << 4);
     SysTick->CTLR |= (1 << 5) | (1 << 0);
 
-    while((SysTick->SR & (1 << 0)) != (1 << 0))
-        ;
+    while((SysTick->SR & (1 << 0)) != (1 << 0));
+
+    /* 恢复 FreeRTOS 的 SysTick 配置 */
     SysTick->CTLR &= ~(1 << 0);
+    SysTick->CMP  = saved_CMP;
+    SysTick->CTLR = saved_CTLR;
 }
 
 /*********************************************************************

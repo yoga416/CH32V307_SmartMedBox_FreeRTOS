@@ -154,71 +154,8 @@ SHT40_HANDLER_Status_t temp_humi_process_event(bsp_temp_humi_handler_t *const ha
                                         float * const humi);
 
 extern volatile bsp_temp_humi_handler_t *g_temp_humi_handler_instance;
+/* 必须加上下面这一句函数声明！ */
+void sht40_handler_start(void);
 
 #endif /* end of __SHT40_HANDLER_H__ */
 
-
-
-
-/****************************************************实例代码************************************** */
-
-//在main函数中调用
-
-#if 0
-    MLX90614_Handler_start();
-#endif
-
-
-
-
-//在任务中调用
-
-#if 0        //sht40_test
-
-/////////////////////////////////////////////////////////////////////////////////////////////
-#include "sht40_handler.h"
-#include "sht40_port.h"
-
-static void  SHT40_TestTask(void)
-{
-    //定义了事件
-    temp_humi_event_t event;
-    SHT40_HANDLER_Status_t RET=SHT40_HANDLER_OK;
-    printf("[SHT40_TestTask] task start!\r\n");
-    for(;;)
-    {
-        bsp_temp_humi_handler_t *handler = (bsp_temp_humi_handler_t *)g_temp_humi_handler_instance;
-        event.event_type=TEMP_HUMI_EVENT_BOTH;
-        event.lifetime=1000;
-        event.pf_callback=on_SHT40_DATA_ready;
-        if(handler!=NULL&&
-           handler->os_interface!=NULL&&
-           handler->event_queue_handle!=NULL)
-        {
-            RET=handler->os_interface->os_queue_put(
-                handler->event_queue_handle,
-                &event,
-                10);
-            if(RET!=SHT40_HANDLER_OK)
-            {
-                printf("[SHT40_TestTask] put queue is failed\r\n");
-            }
-            else
-            {
-                printf("[SHT40_TestTask] queue put ok\r\n");
-            }
-        }
-        else
-        {
-             printf("[SHT40_TestTask] wait handler mount: inst=0x%08lX os_if=0x%08lX queue=0x%08lX\r\n",
-                     (unsigned long)(uint32_t)handler,
-                     (unsigned long)(uint32_t)(handler ? handler->os_interface : NULL),
-                     (unsigned long)(uint32_t)(handler ? handler->event_queue_handle : NULL));
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-}
-
-#endif

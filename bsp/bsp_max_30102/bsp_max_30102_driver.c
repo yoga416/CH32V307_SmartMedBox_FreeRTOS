@@ -31,9 +31,7 @@ static MAX_DRIVER_Status_t max30102_init(bsp_max30102_driver_t *p) {
     p->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_PART_ID, &id);
     if (id != 0x15)
     {
-#ifdef DEBUG_ENABLE
-        printf("[MAX30102] Device ID mismatch: expected 0x15, got 0x%02X\n", id);
-#endif    
+     printf("[ERROR] Device ID mismatch: expected 0x15, got 0x%02X\n", id);
     return MAX_DRIVER_ERROR;
     }           
 
@@ -45,13 +43,14 @@ static MAX_DRIVER_Status_t max30102_init(bsp_max30102_driver_t *p) {
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_WR_PTR, 0x00);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_OVF_COUNTER, 0x00);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_RD_PTR, 0x00);
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_CONFIG, 0x4F);
+    // 3. FIFO 配置：不进行硬件平均以保持100Hz采样率 (SMP_AVE=000)
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_CONFIG, 0x0F);
 
     // 4. 工作模式与参数
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_MODE_CONFIG, 0x03);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_SPO2_CONFIG, 0x27); // 50Hz
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x3F);
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x3F);
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x5F);// 红光 LED ~19mA (原0x27≈6.4mA太低)
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x5F);// 红外 LED ~19mA
 
     // 清除一次初始中断状态
     uint8_t dummy;

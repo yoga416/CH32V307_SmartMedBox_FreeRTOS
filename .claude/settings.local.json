@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i '12s/.*/    \"C_Cpp.default.systemIncludePath\": [],/' \"c:/Users/yoga1/AppData/Roaming/Code/User/settings.json\")",
+      "Bash(sed -i '13,18d' \"c:/Users/yoga1/AppData/Roaming/Code/User/settings.json\")",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.eide/eide.yml', encoding='utf-8'\\)\\)\")",
+      "Bash(python -c \"import yaml; yaml.safe_load\\(open\\('.eide/eide.yml', encoding='utf-8'\\)\\)\")"
+    ]
+  }
+}

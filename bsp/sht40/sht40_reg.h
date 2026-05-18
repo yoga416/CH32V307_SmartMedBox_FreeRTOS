@@ -4,7 +4,7 @@
 /* Software I2C Pin Definitions (GPIO simulation of I2C protocol) */
 #define SHT40_SOFT_I2C_SCL_PORT      GPIOC
 #define SHT40_SOFT_I2C_SCL_PIN       GPIO_Pin_0
-#define SHT40_SOFT_I2C_SDA_PORT      GPIOA
+#define SHT40_SOFT_I2C_SDA_PORT      GPIOC
 #define SHT40_SOFT_I2C_SDA_PIN       GPIO_Pin_1
 
 /* Timing Parameters */
