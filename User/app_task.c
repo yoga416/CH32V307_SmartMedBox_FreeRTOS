@@ -163,6 +163,7 @@ void lcd_task(void *pvParameters)
             lv_timer_handler();  // 再处理 LVGL 定时器任务
             xSemaphoreGive(xGuiMutex);
         }
+        
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
@@ -209,7 +210,7 @@ void sensor_lcd_task(void *pvParameters)
                     int temp_dec = temp % 100;
 
                     if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-                        lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                        //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
                         xSemaphoreGive(xGuiMutex);
                     }
                     break;    
@@ -226,8 +227,8 @@ void sensor_lcd_task(void *pvParameters)
                     int humi_dec = humi % 100;
 
                     if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-                        lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
-                        lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
+                        //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                       // lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
                         xSemaphoreGive(xGuiMutex);
                     }
                     break;
@@ -340,6 +341,12 @@ void usart_task(void *pvParameters)
                     printf("[usart_task] Failed to send packet to ESP8266\n");
                 }
             }
+            /* ⚠️ 关键：内层循环必须延时让低优先级任务（app_task）有机会喂狗 */
+            vTaskDelay(pdMS_TO_TICKS(5));
+            /* 同时主动喂狗，防止 app_task 被长时间阻塞 */
+            if (watchdogTask_Handler != NULL) {
+                xTaskNotifyGive(watchdogTask_Handler);
+            }
         }
          /* 喂狗：通知 watchdog_task */
         vTaskDelay(pdMS_TO_TICKS(20));
@@ -368,7 +375,8 @@ void watchdog_task(void *pvParameters)
             // 超时未收到通知，可能是卡死了，不喂狗，让系统复位
             APP_LOG("[Watchdog] Timeout waiting for App Task notification!\r\n");
         }
-         vTaskDelay(pdMS_TO_TICKS(20));
+         printf("the process is running!\n");
+         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
 }
@@ -399,3 +407,4 @@ void check_medication_time(void) {
         }
     }
 }
+

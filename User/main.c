@@ -49,20 +49,13 @@ int main(void)
     Delay_Init();
     USART_Printf_Init(115200);
 
-//全局外设初始化，包含DMA、传感器接口等
 printf("\r\n==================start======================\r\n");
     uint8_t ret = 0;
     ret = g_peripheral_init();
     if (ret != SYSTEM_INIT_OK) {
-        printf("[Error] Peripheral initialization failed with code: %d\n", ret);
         while (1) {} // 初始化失败，停在这里
     } 
-    /* IWDG 看门狗初始化：允许写入，设置分频并设置重载值，随后使能 */
-    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-    IWDG_SetPrescaler(IWDG_Prescaler_256);
-    IWDG_SetReload(0x0FFF);
-    IWDG_ReloadCounter();
-    IWDG_Enable();
+    /* [DEBUG] 看门狗已禁用，方便调试 */
 
     // 创建 LVGL GUI 互斥锁（必须在 LCD 任务之前创建）
     xGuiMutex = xSemaphoreCreateMutex();

@@ -200,9 +200,14 @@ void tianwen_task(void *pvParameters)
                       printf("[Tianwen Task] Sent time to eat command to Tianwen module\n");
                   }
          }
-       
-    }
-    vTaskDelay(pdMS_TO_TICKS(20)); // 避免任务占用过多CPU，适当延时
-}
-    }
+        } // end if(sendtianwenQueue)
+
+        /* ⚠️ 必须延时让低优先级任务有机会喂狗 */
+        vTaskDelay(pdMS_TO_TICKS(5));
+        /* 也在这里喂狗，防止 for 循环卡死 app_task */
+        if (watchdogTask_Handler != NULL) {
+            xTaskNotifyGive(watchdogTask_Handler);
+        }
+    } // end for(;;)
+} // end tianwen_task
 

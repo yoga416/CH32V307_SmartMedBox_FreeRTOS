@@ -199,12 +199,12 @@ void RTC_IRQHandler(void) {
     // 秒中断
     if (RTC_GetITStatus(RTC_IT_SEC) != RESET) {
         RTC_ClearITPendingBit(RTC_IT_SEC);
-        // //每5秒更新一次界面上的时间显示，或者发送给app_task.c中的时间更新队列,显示在界面上
-        // RTC_TimeTypeDef current_time;
-        // BSP_RTC_GetDateTime(&current_time); // 获取当前时间
-        // APP_LOG("Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n", 
-        //         current_time.year, current_time.month, current_time.day, 
-        //         current_time.hour, current_time.min, current_time.sec);
+        //每5秒更新一次界面上的时间显示，或者发送给app_task.c中的时间更新队列,显示在界面上
+        RTC_TimeTypeDef current_time;
+        BSP_RTC_GetDateTime(&current_time); // 获取当前时间
+        APP_LOG("Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n", 
+                current_time.year, current_time.month, current_time.day, 
+                current_time.hour, current_time.min, current_time.sec);
         RTC_WaitForLastTask();
     }
 }

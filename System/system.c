@@ -247,6 +247,10 @@ uint8_t g_peripheral_init(void)
         printf("[Error] Failed to create sensor_data_lcd_queue!\n");
         return SYSTEM_INIT_FAIL;
     }
+
+     // 人脸识别信号量创建
+    xSem_face_recog = xSemaphoreCreateBinary();
+
      /* 4. 传感器和其他外设初始化 */
     // 创建应用层统一事件队列，深度设为 10 足够了
     xAppEventQueue = xQueueCreate(10, sizeof(AppMsg_t));
@@ -261,9 +265,6 @@ uint8_t g_peripheral_init(void)
     // MLX90614 红外测温
     MLX90614_Handler_start();
     
-    // 人脸识别信号量创建
-    xSem_face_recog = xSemaphoreCreateBinary();
-
     // MAX30102 引脚和中断初始化
     bsp_max30102_port_init();
 
@@ -290,6 +291,11 @@ uint8_t g_peripheral_init(void)
     
     // ========== 初始化并测试 LCD 显示屏 ==========
     LCD_Init();          // 初始化 LCD 显示屏
+
+    /* [DEBUG] 强制打开背光，排除软件背光控制问题 */
+    GPIO_SetBits(GPIOA, GPIO_Pin_1);
+    LCD_LED_ON;
+
     LCD_Clear(WHITE);    // 用白色清屏，检查 LCD 显示是否正常
 
     // 设置显示字符串的颜色参数并在 LCD 上显示测试信息
@@ -357,10 +363,12 @@ uint8_t g_peripheral_init(void)
     // LVGL 图形库初始化
     lv_init();
     lv_port_disp_init();  // 初始化显示接口，绑定到 LCD 屏幕
-    lv_port_indev_init(); // 初始化输入设备接口（触摸屏）
+    //lv_port_indev_init(); // 初始化输入设备接口（触摸屏）
     
     // 加载并显示 GUI Guider 生成的 UI
     setup_ui(&guider_ui);
+    
+    printf("System ready, entering main loop...\r\n");
     
     printf("System ready, entering main loop...\r\n");
     

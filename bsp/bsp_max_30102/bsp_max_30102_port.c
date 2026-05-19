@@ -278,7 +278,6 @@ static MAX_DRIVER_Status_t hw_i2c_read_mem(void *context, uint16_t dev_addr, uin
 }
 
 
-
 // 实例化一个全局的 Handler 对象
 bsp_max_handler_t g_max30102_handler;
 
@@ -315,6 +314,10 @@ void bsp_max30102_port_init(void) {
         .GPIO_Speed = GPIO_Speed_50MHz
     };
     GPIO_Init(GPIOB, &g);
+
+    // 补充：确保 SDA(PB9) 在发时钟脉冲时处于高电平状态，否则从机无法释放总线！
+    GPIO_SetBits(GPIOB, GPIO_Pin_9); 
+    Delay_Us(10);
 
     // 3. 执行 9 个脉冲解锁逻辑
     for (int i = 0; i < 9; i++) {
@@ -377,7 +380,6 @@ void bsp_max30102_port_init(void) {
     NVIC_Init(&nvic_init);
 
     xSem_MAX30102_Exti = xSemaphoreCreateBinary();
-    //NVIC_EnableIRQ(EXTI9_5_IRQn); // 已经由 NVIC_Init 处理
 
     static max_hw_interface_t hw_if = {
         .hi2c = I2C1,
