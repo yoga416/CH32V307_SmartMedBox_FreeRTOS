@@ -260,6 +260,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         xMPU_SETTINGS xMPUSettings; /*< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
     #endif
 
+    // #if (portSTACK_GROWTH < 0)
+	// UBaseType_t     uxSizeOfStack;
+	// #endif
+
     ListItem_t xStateListItem;                  /*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
     ListItem_t xEventListItem;                  /*< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /*< The priority of the task.  0 is the lowest priority. */
@@ -859,7 +863,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         {
             pxTopOfStack = &( pxNewTCB->pxStack[ ulStackDepth - ( uint32_t ) 1 ] );
             pxTopOfStack = ( StackType_t * ) ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack ) & ( ~( ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) ) ); /*lint !e923 !e9033 !e9078 MISRA exception.  Avoiding casts between pointers and integers is not practical.  Size differences accounted for using portPOINTER_SIZE_TYPE type.  Checked by assert(). */
-
+            //pxNewTCB->uxSizeOfStack = ulStackDepth;
             /* Check the alignment of the calculated top of stack is correct. */
             configASSERT( ( ( ( portPOINTER_SIZE_TYPE ) pxTopOfStack & ( portPOINTER_SIZE_TYPE ) portBYTE_ALIGNMENT_MASK ) == 0UL ) );
 

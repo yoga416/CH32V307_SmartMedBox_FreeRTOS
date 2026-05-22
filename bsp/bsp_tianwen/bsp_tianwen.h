@@ -10,4 +10,6 @@ void Tianwen_Send_Data_Cmd(uint8_t cmd, uint16_t sensor_data);
 void Tianwen_Send_Data_Cmd_u8(uint8_t cmd, uint8_t data_high, uint8_t data_low);
 void Tianwen_Send_Data_u32(uint8_t cmd, uint32_t sensor_data);
 
+void UART_SendBytes(uint8_t *data, uint16_t len);
+
 #endif /* __BSP_TIANWEN_H */

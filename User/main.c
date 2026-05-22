@@ -17,10 +17,11 @@
 #include "../bsp/usart_wifi_esp/usart_wifi_esp.h"
 #include "string.h"
 #include "Middle_ring_buffer.h"
-
+#include <stdio.h>
 
 #include "app_task.h"
 #include "ch32v30x_iwdg.h"
+
 
 /* watchdog task handle (defined in app_task.c) */
 extern TaskHandle_t watchdogTask_Handler;
@@ -35,6 +36,7 @@ extern void app_task(void *pvParameters);
 extern void tianwen_task(void *pvParameters);
 extern void lcd_task(void *pvParameters); // 如果有 LCD 任务的话
 extern void sensor_lcd_task(void *pvParameters); // 传感器数据 LCD 显示任务
+
 /*********************************************************************
  * @fn      main
  *
@@ -48,21 +50,14 @@ int main(void)
     SystemCoreClockUpdate();
     Delay_Init();
     USART_Printf_Init(115200);
-
-printf("\r\n==================start======================\r\n");
+    // cm_backtrace_init("CmBackTrace", HARDWARE_VERSION, SOFTWARE_VERSION);
+    printf("\r\n==================start======================\r\n");
     uint8_t ret = 0;
     ret = g_peripheral_init();
     if (ret != SYSTEM_INIT_OK) {
         while (1) {} // 初始化失败，停在这里
     } 
-    /* [DEBUG] 看门狗已禁用，方便调试 */
-
-    // 创建 LVGL GUI 互斥锁（必须在 LCD 任务之前创建）
-    xGuiMutex = xSemaphoreCreateMutex();
-    if (xGuiMutex == NULL) {
-        printf("[Error] Create GUI mutex failed\n");
-        while (1) {}
-    }
+    
 
     // 创建任务并启动调度器
     if (xTaskCreate((TaskFunction_t )app_task,
@@ -124,7 +119,7 @@ printf("\r\n==================start======================\r\n");
                         (const char*    )"lcd_task",
                         (uint16_t       )LCD_TASK_STK_SIZE,
                         (void*          )NULL,
-                        (UBaseType_t    )LCD_TASK_PRIO,
+                        (UBaseType_t    )LCD_TASK,
                         (TaskHandle_t*  )&lcdTask_Handler) != pdPASS)
     {
         printf("[Error] Create lcd_task failed\n");
@@ -136,16 +131,17 @@ printf("\r\n==================start======================\r\n");
                         (const char*    )"sensor_lcd_task",
                         (uint16_t       )SENSOR_TASK_STK_SIZE,
                         (void*          )NULL,
-                        (UBaseType_t    )SENSOR_TASK_PRIO,
+                        (UBaseType_t    )SENSOR_LCD_TASK,
                         NULL) != pdPASS)
     {
         printf("[Error] Create sensor_lcd_task failed\n");
         while (1) {}
     }
     
+    printf("[DEBUG] All tasks created, starting scheduler...\r\n");
     vTaskStartScheduler();
     /* 如果程序运行到这里，说明内存绝对爆了，调度器没起来 */
-    printf("[FATAL] Scheduler failed! Remaining Heap: %d bytes\n", xPortGetFreeHeapSize());
+    printf("[FATAL] Scheduler failed! Remaining Heap: %d bytes\r\n", xPortGetFreeHeapSize());
     while (1)
     {
         printf("shouldn't run at here!!\n");

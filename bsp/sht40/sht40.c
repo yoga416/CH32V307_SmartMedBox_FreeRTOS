@@ -19,10 +19,7 @@
 
 /******************************variables***************************************/
 static  int8_t      g_inited = SHT40_NOT_INITED; 
-static  uint64_t    g_device_id = 0; 
 
-
-static  uint32_t    cpu_sr;
 
 static void internal_delay_ms(bsp_sht40_driver_t *const p_instance, uint32_t ms)
 {
@@ -34,9 +31,9 @@ static void internal_delay_ms(bsp_sht40_driver_t *const p_instance, uint32_t ms)
     }
 }
 
-static SHT40_Status_t sht40_read_data(bsp_sht40_driver_t *const p_sht40_instance, float *temperature, float *humidity)
+static SHT40_Status_t sht40_read_data(void *const p_context, float *const temperature, float *const humidity)
 {
-    SHT40_Status_t result = SHT40_OK;
+    bsp_sht40_driver_t *const p_sht40_instance = (bsp_sht40_driver_t *)p_context;
     uint8_t buf[6] = {0};
 
     // 基础校验：确保实例、接口及关键函数指针有效

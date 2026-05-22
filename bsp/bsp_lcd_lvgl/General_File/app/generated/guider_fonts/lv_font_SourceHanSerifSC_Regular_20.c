@@ -54,12 +54,12 @@ static const uint8_t *han_get_bitmap_cb(const lv_font_t *font, uint32_t unicode)
     if(read_len == 0) read_len = 1;                    // 至少读取1字节
     if(read_len > sizeof(w25q_glyph_buf)) read_len = sizeof(w25q_glyph_buf);  // 不超过缓冲区大小
 
-    /* 调试打印：前10次调用输出详细信息 */
-    if(call_count <= 10) {
-        printf("HAN U+%04lX: idx=%d box=%dx%d len=%d\r\n",
-               (unsigned long)unicode, (int)bitmap_index,
-               (int)glyph.box_w, (int)glyph.box_h, (int)read_len);
-    }
+    // /* 调试打印：前10次调用输出详细信息 */
+    // if(call_count <= 10) {
+    //     printf("HAN U+%04lX: idx=%d box=%dx%d len=%d\r\n",
+    //            (unsigned long)unicode, (int)bitmap_index,
+    //            (int)glyph.box_w, (int)glyph.box_h, (int)read_len);
+    // }
 
     /* 从 W25Q 闪存的对应地址读取字形数据 */
     W25Q_ReadData(W25Q_FONT_OFFSET + bitmap_index, w25q_glyph_buf, read_len);

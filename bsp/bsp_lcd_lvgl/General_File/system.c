@@ -1,5 +1,10 @@
 #include "system.h"
 #include "debug.h"
+#include "ch32v30x_gpio.h"
+
+#ifndef GPIO_TogglePin
+#define GPIO_TogglePin(GPIOx, GPIO_Pin) ((GPIOx)->OUTDR ^= (GPIO_Pin))
+#endif
 
 void system_Init()
 {
@@ -18,7 +23,7 @@ void system_Loop()
 {
     static uint32_t cnt = 0;
     cnt++;
-    if(cnt >= 500) {  // ·Ç×èÈû¼ÆÊý
+    if(cnt >= 500) {  // ? 500 ?????????????????????
         cnt = 0;
         GPIO_TogglePin(GPIOE, GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3);
     }

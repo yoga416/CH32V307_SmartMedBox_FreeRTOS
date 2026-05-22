@@ -258,6 +258,14 @@ uint8_t g_peripheral_init(void)
         printf("[Error] Failed to create xAppEventQueue!\n");
         // 最好在这里加个错误处理
     }
+    // 创建 LVGL GUI 互斥锁（必须在 LCD 任务之前创建）
+    xGuiMutex = xSemaphoreCreateMutex();
+    if (xGuiMutex == NULL) {
+        printf("[Error] Create GUI mutex failed\n");
+        while (1) {}
+    }
+    
+ 
      /* 4. 传感器和其他外设初始化 */
     // SHT40 温湿度
     sht40_handler_start();  
@@ -278,9 +286,6 @@ uint8_t g_peripheral_init(void)
     
     // //rtc初始化
     BSP_RTC_Init();
-    
-    //A7670C 初始化
-
 
     printf("\r\n========================================\r\n");
     printf("CH32V307 LVGL + GUI Guider Test\r\n");
@@ -291,32 +296,29 @@ uint8_t g_peripheral_init(void)
     
     // ========== 初始化并测试 LCD 显示屏 ==========
     LCD_Init();          // 初始化 LCD 显示屏
-
     /* [DEBUG] 强制打开背光，排除软件背光控制问题 */
-    GPIO_SetBits(GPIOA, GPIO_Pin_1);
-    LCD_LED_ON;
+    //GPIO_SetBits(GPIOA, GPIO_Pin_1);
+    //LCD_LED_ON;
 
     LCD_Clear(WHITE);    // 用白色清屏，检查 LCD 显示是否正常
 
     // 设置显示字符串的颜色参数并在 LCD 上显示测试信息
     POINT_COLOR = BLACK;
     BACK_COLOR = WHITE;
-    LCD_ShowString(10, 10, (u8*)"LCD OK!", BLUE, WHITE, 16);
-    Delay_Ms(1000);
+    // LCD_ShowString(10, 10, (u8*)"LCD OK!", BLUE, WHITE, 16);
+    // Delay_Ms(1000);
     
     // 初始化触摸屏的 I2C 接口
     CTP_IIC_Init();
     
-    printf("Testing FT6336...\r\n");
     if(FT6336_Init() == 0) {
-        printf("FT6336 OK!\r\n");
+        //printf("FT6336 OK!\r\n");
     } else {
         printf("FT6336 Failed!\r\n");
     }
     
     /* 初始化 SPI2 接口和 W25Q 外部闪存 */
     W25Q_Init();
-    printf("W25Q Init done.\r\n");
 
     // /* ========== 烧录字体到 W25Q 闪存（首次使用时取消注释） ========== */
     // printf("Erasing W25Q for font...\r\n");
@@ -332,45 +334,15 @@ uint8_t g_peripheral_init(void)
     // while(1); // 烧录完成后停止，观察结果
     // /* ========== 烧录结束 ========== */
     
-    /* ========== 验证 W25Q 数据读取 ========== */
-    uint8_t test_buf[32];
-    uint32_t test_addr;
-    
-    printf("=== W25Q Read Test ===\r\n");
-    
-    // 测试1：读取地址 0x000000 处的数据（中文字体数据）
-    test_addr = 0x000000;
-    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
-    printf("Addr 0x%06lX: ", test_addr);
-    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
-    printf("\r\n");
+    printf("[LCD] Starting LVGL Initialization in Task...\r\n");
 
-    // 测试2：读取地址 0x020000 处的数据（12px 英文字体数据）
-    test_addr = 0x020000;
-    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
-    printf("Addr 0x%06lX: ", test_addr);
-    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
-    printf("\r\n");
-
-    // 测试3：读取地址 0x030000 处的数据（20px 英文字体数据）
-    test_addr = 0x030000;
-    W25Q_ReadData(test_addr, test_buf, 32);      // 读取 32 字节数据
-    printf("Addr 0x%06lX: ", test_addr);
-    for(int i=0; i<32; i++) printf("%02X ", test_buf[i]);
-    printf("\r\n");
-    printf("=== W25Q Test Done ===\r\n");
-
-    // LVGL 图形库初始化
     lv_init();
-    lv_port_disp_init();  // 初始化显示接口，绑定到 LCD 屏幕
-    //lv_port_indev_init(); // 初始化输入设备接口（触摸屏）
-    
-    // 加载并显示 GUI Guider 生成的 UI
+    lv_port_disp_init();  // 初始化显示接口
+    lv_port_indev_init(); // 初始化输入设备接口
+    printf("[LCD] Free Heap after LVGL: %u B\n", (unsigned int)xPortGetFreeHeapSize());
+    // 加载 UI
     setup_ui(&guider_ui);
-    
-    printf("System ready, entering main loop...\r\n");
-    
-    printf("System ready, entering main loop...\r\n");
+    printf("[LCD] UI Setup Done\r\n");
     
     return SYSTEM_INIT_OK;
 }

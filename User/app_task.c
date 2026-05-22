@@ -43,6 +43,9 @@
 #include "gui_guider.h"
 #include "events_init.h"
 
+/* 触摸屏扫描（FT6336 软件 I2C） */
+#include "touch.h"
+
 
 //////////////////////////
 RingBuffer_t g_ring_buffer = {0};
@@ -74,9 +77,9 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
 void check_medication_time(void); // 声明检查吃药时间的函数
  // 定义吃药时间表
 AlarmSche my_meds[MAX_SCHE] = {
-      {20, 01},  
-      {20, 02}, 
-      {20, 03}   
+      {10, 01},  
+      {10, 02}, 
+      {10, 03}   
 };
 
 void app_task(void *pvParameters)
@@ -92,7 +95,7 @@ void app_task(void *pvParameters)
     xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
 
     //设置时间：
-    BSP_RTC_ModifyTime(2026, 5, 7, 21, 31, 55); // 设置初始时间为2026年3月2日00:00:00
+    BSP_RTC_ModifyTime(2026, 5, 20, 10, 00, 25); // 设置初始时间为2026年3月2日00:00:00
     //设置闹钟(已经设置就生效，所以放在主循环前面)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
@@ -157,78 +160,96 @@ void app_task(void *pvParameters)
 
 void lcd_task(void *pvParameters)
 {
+    
     for(;;) {
-        if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdPASS) {
-            lv_tick_inc(10);      // 先递增 LVGL tick（与 10ms 任务周期匹配）
-            lv_timer_handler();  // 再处理 LVGL 定时器任务
+        /* 使用 portMAX_DELAY 阻塞等待，确保拿到锁再执行 LVGL 定时器。
+           若用短超时跳过则 lv_timer_handler 无法运行，GUI 刷新停滞。 */
+
+        if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
+            lv_tick_inc(10);      // 先递增 LVGL tick
+            lv_timer_handler();  // 处理 LVGL 定时器
             xSemaphoreGive(xGuiMutex);
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(10));
+
+        vTaskDelay(pdMS_TO_TICKS(10)); // 每10ms更新一次 LCD
     }
 }
 
 void sensor_lcd_task(void *pvParameters)
 {
-    Tianwen_Packet_t sensor_lcd_packet;
-    RTC_TimeTypeDef current_time;// 用于显示时间
+    static Tianwen_Packet_t sensor_lcd_packet;
+    static RTC_TimeTypeDef current_time; 
+    
+    uint32_t last_rtc_update_tick = 0;
+    uint32_t current_tick = 0;
+
     (void)pvParameters;
+    
     for(;;)
     {
-        if(xQueueReceive(sensor_data_lcd_queue, &sensor_lcd_packet, pdMS_TO_TICKS(10)) == pdPASS) {
-            
+        // 1. 触摸屏扫描
+        FT6336_Scan();
+
+        // 2. 接收传感器数据队列
+        if(xQueueReceive(sensor_data_lcd_queue, &sensor_lcd_packet, pdMS_TO_TICKS(20)) == pdPASS) 
+        {
             switch(sensor_lcd_packet.id)
             {
-                case SENSOR_ID_HEART_RATE_SPO2://cmd:09
+                case SENSOR_ID_HEART_RATE_SPO2: 
                 {
-                    // 解析心率和血氧数据，更新 LCD 显示
-                    uint16_t heart_rate = (sensor_lcd_packet.data[0] << 8) 
-                                        | sensor_lcd_packet.data[1];
-                    uint16_t spo2 = (sensor_lcd_packet.data[2] << 8) 
-                                  | sensor_lcd_packet.data[3];
+                    uint16_t heart_rate = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
+                    uint16_t spo2       = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
 
-                    // 拆分整数和小数部分 (心率X100，血氧X100)
-                    int hr_int = heart_rate / 100;
-                    int hr_dec = heart_rate % 100;
+                    int hr_int   = heart_rate / 100;
+                    int hr_dec   = heart_rate % 100;
                     int spo2_int = spo2 / 100;
                     int spo2_dec = spo2 % 100;
 
-                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-                        lv_label_set_text_fmt(guider_ui.screen_label_5, "%d.%02d bpm", hr_int, hr_dec);
-                        lv_label_set_text_fmt(guider_ui.screen_label_6, "%d.%02d %%", spo2_int, spo2_dec);
+                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
+                        if (lv_obj_is_valid(guider_ui.screen_2_label_13)) {
+                            //lv_label_set_text_fmt(guider_ui.screen_label_5, "%d.%02d bpm", hr_int, hr_dec);
+                            lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d.%02d bpm", 65, 00); // 模拟数据，实际使用时替换为 hr_int 和 hr_dec
+                        }
+                        if (lv_obj_is_valid(guider_ui.screen_2_label_14)) {
+                            //lv_label_set_text_fmt(guider_ui.screen_label_6, "%d.%02d %%", spo2_int, spo2_dec);
+                            lv_label_set_text_fmt(guider_ui.screen_2_label_14, "%d.%02d %%", 98, 5); // 模拟数据，实际使用时替换为 spo2_int 和 spo2_dec
+                        }
                         xSemaphoreGive(xGuiMutex);
                     }
                     break;
                 }
-                case SENSOR_ID_MLX_TEMP_BOTH://cmd:08
+                case SENSOR_ID_MLX_TEMP_BOTH: 
                 {
-                    // 体温数据，更新 LCD 显示
-                    uint16_t temp = (sensor_lcd_packet.data[0] << 8)
-                                  | sensor_lcd_packet.data[1];
-
+                    uint16_t temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
                     int temp_int = temp / 100;
                     int temp_dec = temp % 100;
 
-                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-                        //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
-                        xSemaphoreGive(xGuiMutex);
-                    }
-                    break;    
-                }  
-                case SENSOR_ID_TEMPERATURE_HUMIDITY://cmd:10
+                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
+                        if (lv_obj_is_valid(guider_ui.screen_2_label_15)) {
+                            //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                            lv_label_set_text_fmt(guider_ui.screen_2_label_15, "%d.%02d°C", 36, 5); // 模拟数据，实际使用时替换为 temp_int 和 temp_dec
+                        }
+                        xSemaphoreGive(xGuiMutex); 
+                    }  
+                    break;  
+                }
+                case SENSOR_ID_TEMPERATURE_HUMIDITY: 
                 {
                     uint16_t temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
                     uint16_t humi = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
 
-                    // 拆分整数和小数部分 (假设 temp 是 2550 代表 25.50)
                     int temp_int = temp / 100;
                     int temp_dec = temp % 100;
                     int humi_int = humi / 100;
                     int humi_dec = humi % 100;
 
-                    if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-                        //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
-                       // lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
+                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
+                        if (lv_obj_is_valid(guider_ui.screen_label_7)) {
+                            lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
+                        }
+                        if (lv_obj_is_valid(guider_ui.screen_label_8)) {
+                            lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
+                        }
                         xSemaphoreGive(xGuiMutex);
                     }
                     break;
@@ -237,23 +258,37 @@ void sensor_lcd_task(void *pvParameters)
                     break;
             }
         }
-        // 定期更新时间显示（需持有 GUI 互斥锁）
-        BSP_RTC_GetDateTime(&current_time);
-        if (xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(50)) == pdPASS) {
-            lv_label_set_text_fmt(guider_ui.screen_label_4,
-             "%02d:%02d:%02d", current_time.hour,
-             current_time.min, current_time.sec);
+        
+        // 3. 限制半秒一次刷新 RTC 时间
+        current_tick = xTaskGetTickCount();
+        if ((current_tick - last_rtc_update_tick) >= pdMS_TO_TICKS(1000)) 
+        {
+            last_rtc_update_tick = current_tick;
+            BSP_RTC_GetDateTime(&current_time);
 
-            lv_label_set_text_fmt(guider_ui.screen_label_3,
-             "%04d/%02d/%02d", current_time.year,
-             current_time.month, current_time.day);
-
-            lv_label_set_text(guider_ui.screen_label_2, "1");
-            xSemaphoreGive(xGuiMutex);
+            if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) 
+            {
+                if (lv_obj_is_valid(guider_ui.screen_label_4)) {
+                    lv_label_set_text_fmt(guider_ui.screen_label_4, "%02d:%02d:%02d", 
+                                          current_time.hour, current_time.min, current_time.sec);
+                }
+                if (lv_obj_is_valid(guider_ui.screen_label_3)) {
+                    lv_label_set_text_fmt(guider_ui.screen_label_3, "%04d/%02d/%02d", 
+                                          current_time.year, current_time.month, current_time.day);
+                }
+                if (lv_obj_is_valid(guider_ui.screen_label_2)) {
+                    lv_label_set_text(guider_ui.screen_label_2, "1");
+                }
+                xSemaphoreGive(xGuiMutex); // 【已修正】只在成功获取锁的 if 内部释放锁！
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(20));
+        
+        // 保持 100ms 一次的循环延时
+        vTaskDelay(pdMS_TO_TICKS(100));
     }   
 }
+
+
 void bsp_sensor_task(void *pvParameters)
 {
     A7670C_Init();
@@ -292,7 +327,7 @@ void bsp_sensor_task(void *pvParameters)
                     break;
 
                 case CMD_MEASURE_ENV_TEMP_HUMI:
-                    APP_LOG("[App] Received CMD: Measure Env Temp & Humidity\n");
+                    //APP_LOG("[App] Received CMD: Measure Env Temp & Humidity\n");
                     if (g_temp_humi_handler_instance != NULL) {
                         temp_humi_event_t sht_evt;
                         sht_evt.event_type = TEMP_HUMI_EVENT_BOTH;
@@ -369,14 +404,17 @@ void watchdog_task(void *pvParameters)
     {
         // 等待 app_task 的喂狗通知，如果在 2000ms 内等不到，说明 app_task 卡死了
         // 注意：不等待通知直接喂狗掩盖了死机，这里我们恢复通知等待机制
-        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000))) {
+        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000))) 
+        {
             IWDG_ReloadCounter();
-        } else {
+        } 
+        else 
+        {
             // 超时未收到通知，可能是卡死了，不喂狗，让系统复位
             APP_LOG("[Watchdog] Timeout waiting for App Task notification!\r\n");
         }
-         printf("the process is running!\n");
-         vTaskDelay(pdMS_TO_TICKS(1000));
+         //printf("the process is running!\n");
+            vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
 }

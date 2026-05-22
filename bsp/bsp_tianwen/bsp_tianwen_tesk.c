@@ -32,11 +32,10 @@ void tianwen_task(void *pvParameters)
     (void)pvParameters;
     SystemCommand_t test_cmd;
     Tianwen_Packet_t tianwen_packet;
-    uint8_t test_step = 0;
     uint8_t rx_byte = 0;
     uint8_t parse_state = 0;
     uint8_t current_cmd = 0;
-
+    uint8_t time=0;
     for(;;)
     {
         // 阻塞等待串口队列中的数据。portMAX_DELAY 表示如果没有数据，任务就挂起不占CPU
@@ -113,6 +112,16 @@ void tianwen_task(void *pvParameters)
                     break;
             }
         }
+        else
+        {
+            time++;
+            if(time>=100)            
+            {
+                time=0;
+            test_cmd = CMD_MEASURE_ENV_TEMP_HUMI;
+            xQueueSend(xSysCmdQueue, &test_cmd, 0);
+            }
+        }
 
       //接收数据帧并发送给天问模块
       if(xQueueReceive(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(10)) == pdPASS)
@@ -163,7 +172,7 @@ void tianwen_task(void *pvParameters)
                         env_buffer[6] = TIANWEN_FRAME_TAIL;       // 0xFF
                         //调用底层发送函数将数据推出去
                         UART_SendBytes(env_buffer, 7);
-                        printf("[Tianwen Task] Sent SHT40 environment data to Tianwen module\n");
+                        //printf("[Tianwen Task] Sent SHT40 environment data to Tianwen module\n");
                         break;
                   }
                   default:

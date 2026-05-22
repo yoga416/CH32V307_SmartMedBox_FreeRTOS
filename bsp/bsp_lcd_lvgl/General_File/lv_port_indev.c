@@ -11,6 +11,8 @@
 #include "lvgl.h"
 #include "touch.h"
 #include "debug.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /**********************
  *  STATIC PROTOTYPES
@@ -25,9 +27,12 @@ void lv_port_indev_init(void)
 {
     static lv_indev_drv_t indev_drv;
     
+    printf("  [indev] indev_drv_init start\r\n");
     lv_indev_drv_init(&indev_drv);
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touchpad_read;
+    
+    printf("  [indev] lv_indev_drv_register start\r\n");
     lv_indev_drv_register(&indev_drv);
     
     printf("lv_port_indev_init done!\r\n");
@@ -42,26 +47,26 @@ static void touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
     static uint32_t call_count = 0;
     call_count++;
     
-    // 每 200 次打印一次，确认函数被调用
-    if(call_count % 200 == 1) {
-        printf("touchpad_read called: %d times\r\n", call_count);
-    }
+    // // 每 200 次打印一次，确认函数被调用
+    // if(call_count % 200 == 1) {
+    //     printf("touchpad_read called: %u times\r\n", (unsigned int)call_count);
+    // }
     static lv_coord_t last_x = 0, last_y = 0;
     
-    // 扫描触摸屏
-    FT6336_Scan();
-    
+    /* [RTOS] FT6336_Scan() 已移出 LVGL 回调，改到 sensor_lcd_task 中执行。
+       原因：FT6336 软件 I2C 内有 ~16us 的位碰撞延迟，在 LVGL 回调中
+       直接做 I2C 会阻塞 lv_timer_handler，导致 GUI 无法正常刷新和响应。
+       现在由 sensor_lcd_task 每 20ms 扫描一次触摸，通过 tp_dev 共享数据。 */
     extern _m_tp_dev tp_dev;
     
-    // 调试打印
-    static uint32_t print_cnt = 0;
-    print_cnt++;
-    if(print_cnt >= 30) {
-        print_cnt = 0;
-        printf("Touch state: sta=0x%02X, x=%d, y=%d\r\n", 
-               tp_dev.sta, tp_dev.x[0], tp_dev.y[0]);
-    }
-    
+    // // 调试打印
+    // static uint32_t print_cnt = 0;
+    // print_cnt++;
+    // if(print_cnt >= 30) {
+    //     print_cnt = 0;
+    //     printf("Touch state: sta=0x%02X, x=%d, y=%d\r\n", 
+    //            tp_dev.sta, tp_dev.x[0], tp_dev.y[0]);
+    // }
     if(tp_dev.sta & TP_PRES_DOWN) {
         // 原始坐标
         lv_coord_t raw_x = tp_dev.x[0];
@@ -77,10 +82,10 @@ static void touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
         if(mapped_y < 0) mapped_y = 0;
         if(mapped_y >= 480) mapped_y = 479;
         
-        // 只在坐标变化时打印
-        if(last_x != mapped_x || last_y != mapped_y) {
-            printf("Touch: raw(%d,%d) -> mapped(%d,%d)\r\n", raw_x, raw_y, mapped_x, mapped_y);
-        }
+        // // 只在坐标变化时打印
+        // if(last_x != mapped_x || last_y != mapped_y) {
+        //     printf("Touch: raw(%d,%d) -> mapped(%d,%d)\r\n", raw_x, raw_y, mapped_x, mapped_y);
+        // }
         
         last_x = mapped_x;
         last_y = mapped_y;

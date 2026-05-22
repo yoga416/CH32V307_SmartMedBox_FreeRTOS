@@ -1,5 +1,7 @@
 #include "ctpiic.h"
 #include "debug.h"	 
+#include "FreeRTOS.h"
+#include "task.h"
 
 /*****************************************************************************
  * @name       :void CTP_Delay(void)
@@ -10,7 +12,10 @@
 ******************************************************************************/
 void CTP_Delay(void)
 {
-    Delay_Us(2);  // 增加延迟，更稳定
+    // 使用纯软件循环实现约 1.5us - 2us 的延时
+    // 避免在任务中使用 Delay_Us 重置 SysTick 导致调度器崩溃
+    volatile uint32_t i = 120;
+    while(i--);
 } 
 
 /*****************************************************************************
@@ -87,9 +92,9 @@ u8 CTP_IIC_Wait_Ack(void)
     u8 ucErrTime = 0;
     CTP_SDA_IN();                       // SDA设置为输入
     GPIO_SetBits(GPIOB, GPIO_Pin_11);   // SDA = 1
-    Delay_Us(1);
+    CTP_Delay();
     GPIO_SetBits(GPIOB, GPIO_Pin_10);   // SCL = 1
-    Delay_Us(1);
+    CTP_Delay();
     while(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_11))
     {
         ucErrTime++;
@@ -149,6 +154,11 @@ void CTP_IIC_NAck(void)
 void CTP_IIC_Send_Byte(u8 txd)
 {                        
     u8 t;   
+    /* [RTOS] 移除 vTaskSuspendAll：本函数仅 ~16us 耗时的位碰撞，
+       无需挂起整个调度器。此前在 LVGL 回调中挂起调度器会直接
+       导致 vTaskDelay/lv_timer_handler 无法运行而触发 HardFault。
+       触摸 I2C 已移出 LVGL 回调，在普通任务中执行，任务切换
+       产生的字节间延迟 FT6336 完全可容忍。 */
     CTP_SDA_OUT();      
     GPIO_ResetBits(GPIOB, GPIO_Pin_10); // 拉低时钟开始数据传输
     for(t = 0; t < 8; t++)
@@ -162,7 +172,7 @@ void CTP_IIC_Send_Byte(u8 txd)
         CTP_Delay();
         GPIO_ResetBits(GPIOB, GPIO_Pin_10);  
         CTP_Delay();
-    }     
+    }  
 }   
 
 /*****************************************************************************
@@ -175,21 +185,24 @@ void CTP_IIC_Send_Byte(u8 txd)
 u8 CTP_IIC_Read_Byte(unsigned char ack)
 {
     u8 i, receive = 0;
+    /* [RTOS] 移除 vTaskSuspendAll：原因同 CTP_IIC_Send_Byte，
+       ~16us 位碰撞无需挂起调度器。 */
     CTP_SDA_IN();                       // SDA设置为输入
     for(i = 0; i < 8; i++)
     {
         GPIO_ResetBits(GPIOB, GPIO_Pin_10);      
-        Delay_Us(3);
+        CTP_Delay();
         GPIO_SetBits(GPIOB, GPIO_Pin_10);  
         receive <<= 1;
         if(GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_11))
             receive++;
-        Delay_Us(1);
+        CTP_Delay();
     }
     GPIO_ResetBits(GPIOB, GPIO_Pin_10); // 拉低时钟
     if(!ack)
         CTP_IIC_NAck();                 // 发送nACK
     else
         CTP_IIC_Ack();                  // 发送ACK   
+    //xTaskResumeAll(); // 恢复调度
     return receive;
 }

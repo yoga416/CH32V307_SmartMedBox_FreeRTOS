@@ -10,12 +10,12 @@
 #define SENSOR_TASK_PRIO    3
 #define APP_TASK_PRIO       3
 #define TIANWEN_TASK_PRIO    4
-#define LCD_TASK_PRIO       2 
+#define LCD_TASK            2 
 #define WATCHDOG_TASK_PRIO   4
 #define BSP_SHT40_TASK_PRIO  3
 #define BSP_MLX90614_TASK_PRIO 3
 #define BSP_MAX30102_TASK_PRIO 3
-#define SENSOR_TASK_PRIO    3
+#define SENSOR_LCD_TASK    1
 /* 堆栈大小转换宏 */
 #define STACK_BYTES_TO_WORDS(bytes) ((uint16_t)((bytes) / sizeof(StackType_t)))
 
@@ -23,9 +23,9 @@
 #define USART_TASK_STK_SIZE  STACK_BYTES_TO_WORDS(1024) // 1KB
 #define APP_TASK_STK_SIZE    STACK_BYTES_TO_WORDS(2048) // 2KB
 #define TIANWEN_TASK_STK_SIZE STACK_BYTES_TO_WORDS(2048) // 2KB (天问通信任务)
-#define LCD_TASK_STK_SIZE   STACK_BYTES_TO_WORDS(4096) // 4KB (增加LVGL栈)
+#define LCD_TASK_STK_SIZE   STACK_BYTES_TO_WORDS(4096) // 8KB (增加LVGL栈)
 #define WATCHDOG_TASK_STK_SIZE STACK_BYTES_TO_WORDS(512) // 512B (喂狗任务，比较简单)
-#define SENSOR_TASK_STK_SIZE STACK_BYTES_TO_WORDS(4096) // 4KB (因为里面有printf和队列)
+#define SENSOR_TASK_STK_SIZE STACK_BYTES_TO_WORDS(4096) // 8KB (因为里面有printf和队列)
 
 
 #define BSP_SHT40_TASK_STK_SIZE  STACK_BYTES_TO_WORDS(2048)  // 2048B (SHT40 Handler 专用)

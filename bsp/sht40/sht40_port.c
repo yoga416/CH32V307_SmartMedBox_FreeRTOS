@@ -134,7 +134,7 @@ SHT40_Status_t SHT40_SoftI2C_waitAck(void *context)
 SHT40_Status_t SHT40_SoftI2C_Start(void *context)
 {
     IIC_W_SDA(1); IIC_W_SCL(1); IIC_W_SDA(0); IIC_W_SCL(0);
-    printf("[SHT40 Soft I2C] Start condition generated.\n");
+    //printf("[SHT40 Soft I2C] Start condition generated.\n");
     return SHT40_OK;
 }
 
@@ -225,8 +225,8 @@ void pf_empty_critical(void) { __NOP(); }
         temp_x100 = (int32_t)(*temp * 100.0f);
         hum_x100 = (int32_t)(*humi * 100.0f);
         
-        APP_LOG("[SHT40 Callback] Data ready callback triggered.\n");
-        APP_LOG("[SHT40 Callback] temp=%ld, hum=%ld\n", (long)temp_x100, (long)hum_x100);
+       // APP_LOG("[SHT40 Callback] Data ready callback triggered.\n");
+       // APP_LOG("[SHT40 Callback] temp=%ld, hum=%ld\n", (long)temp_x100, (long)hum_x100);
         
         // 发送到天问通信队列
 Tianwen_Packet_t tianwen_packet;

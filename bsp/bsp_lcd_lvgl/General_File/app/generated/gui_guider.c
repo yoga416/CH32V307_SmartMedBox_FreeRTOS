@@ -84,9 +84,13 @@ void init_scr_del_flag(lv_ui *ui)
 
 void setup_ui(lv_ui *ui)
 {
+    printf("  [setup_ui] init_scr_del_flag\r\n");
     init_scr_del_flag(ui);
+    printf("  [setup_ui] init_keyboard\r\n");
     init_keyboard(ui);
+    printf("  [setup_ui] setup_scr_screen\r\n");
     setup_scr_screen(ui);
+    printf("  [setup_ui] lv_scr_load\r\n");
     lv_scr_load(ui->screen);
 }
 

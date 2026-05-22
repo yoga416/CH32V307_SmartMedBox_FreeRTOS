@@ -54,7 +54,7 @@
 #define __FT6336_H	
 #include "debug.h"	
 
-#define CTP_MAX_TOUCH 2
+#define CTP_MAX_TOUCH 1
 
 //与电容触摸屏连接的芯片引脚(未包含IIC引脚) 
 //IO操作函数	 

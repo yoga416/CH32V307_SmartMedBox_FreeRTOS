@@ -17,7 +17,7 @@
 #include "app_task.h"
 
 void NMI_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
-void HardFault_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
+//void HardFault_Handler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 
 
 extern SemaphoreHandle_t xDMA_Sem; // DMA发送完成信号量
@@ -43,34 +43,63 @@ void NMI_Handler(void)
  *
  * @return  none
  */
-// void HardFault_Handler(void)
-// { 
-//   __disable_irq();
-//   while (1)
-//   {
-    
-//   }  
-// }
 void HardFault_Handler(void)
 {
     /* 1. 定义变量存储关键寄存器 */
-    uint32_t mepc, mcause, mtval;
+    uint32_t mepc, mcause, mtval, mstatus;
+    uint32_t sp_val, ra_val;
 
     /* 2. 使用 RISC-V 内联汇编读取 CSR 寄存器 */
-    __asm volatile("csrr %0, mepc"   : "=r"(mepc));   // 获取崩溃时的程序指针 (PC)
-    __asm volatile("csrr %0, mcause" : "=r"(mcause)); // 获取导致异常的原因
-    __asm volatile("csrr %0, mtval"  : "=r"(mtval));  // 获取导致异常的内存地址或指令
+    __asm volatile("csrr %0, mepc"     : "=r"(mepc));
+    __asm volatile("csrr %0, mcause"   : "=r"(mcause));
+    __asm volatile("csrr %0, mtval"    : "=r"(mtval));
+    __asm volatile("csrr %0, mstatus"  : "=r"(mstatus));
+    __asm volatile("mv %0, sp"         : "=r"(sp_val));
+    __asm volatile("mv %0, ra"         : "=r"(ra_val));
 
     /* 3. 打印核心崩溃现场 */
     printf("\r\n========================================\r\n");
     printf("[CRITICAL] !!! HardFault Detected !!!\r\n");
     printf("========================================\r\n");
-    printf("MEPC   (Crash PC)   : 0x%08lX\r\n", mepc);
-    printf("MCAUSE (Reason)     : 0x%08lX\r\n", mcause);
-    printf("MTVAL  (Fault Addr) : 0x%08lX\r\n", mtval);
+    printf("MEPC    (Crash PC)   : 0x%08lX\r\n", mepc);
+    printf("MCAUSE  (Reason)     : 0x%08lX\r\n", mcause);
+    printf("MTVAL   (Fault Addr) : 0x%08lX\r\n", mtval);
+    printf("MSTATUS (Status)     : 0x%08lX\r\n", mstatus);
+    printf("SP      (Stack Ptr)  : 0x%08lX\r\n", sp_val);
+    printf("RA      (Return Addr): 0x%08lX\r\n", ra_val);
     printf("========================================\r\n");
 
-    /* 4. 尝试获取并打印当前正在运行的 FreeRTOS 任务名 */
+    /* 4. 尝试对 MCAUSE 进行可读性解析 */
+    {
+        uint32_t exception_code = mcause & 0x1F;  // 低5位是异常编号
+        uint32_t is_interrupt   = (mcause >> 31) & 1;
+        printf("[Decode] Type: %s, Code: %lu", is_interrupt ? "Interrupt" : "Exception", exception_code);
+        if (!is_interrupt) {
+            static const char *exc_names[] = {
+                "Instruction address misaligned",
+                "Instruction access fault",
+                "Illegal instruction",
+                "Breakpoint",
+                "Load address misaligned",
+                "Load access fault",
+                "Store/AMO address misaligned",
+                "Store/AMO access fault",
+                "Environment call from U-mode",
+                "Environment call from S-mode",
+                "Reserved", "Reserved",
+                "Environment call from M-mode",
+                "Instruction page fault",
+                "Load page fault",
+                "Reserved",
+                "Reserved"
+            };
+            if (exception_code < 16 && exc_names[exception_code])
+                printf(" => %s", exc_names[exception_code]);
+        }
+        printf("\r\n");
+    }
+
+    /* 5. 尝试获取并打印当前正在运行的 FreeRTOS 任务名 */
     /* 注意：如果由于内存越界导致 FreeRTOS 内核数据结构损坏，
        调用 pcTaskGetName 可能会引发二次崩溃，导致打印不全。
        如果发现卡死且没印出这句话，可以把这行注释掉。 */
@@ -81,7 +110,7 @@ void HardFault_Handler(void)
     
     printf("System halted. Please check the logs above.\r\n");
 
-    /* 5. 死循环，防止芯片不断重启 */
+    /* 6. 死循环，防止芯片不断重启 */
     while (1)
     {
         /* 如果有 LED，可以加一段极其简单的翻转代码，比如：
@@ -102,22 +131,6 @@ void TIM2_IRQHandler(void)
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
   }
 }
-
-// void EXTI9_5_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
-// void EXTI9_5_IRQHandler(void)
-// {
-//   if (EXTI_GetITStatus(EXTI_Line6) != RESET)
-//   {
-//     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//     EXTI_ClearITPendingBit(EXTI_Line6);
-//     if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
-//       xEventGroupSetBitsFromISR(xEventGroup, EVENT_SENSOR_DATA_READY, &xHigherPriorityTaskWoken);
-//       portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-//     }
-//   }
-// }
-
-
 
 // 引入外部的 RTOS 句柄
 extern EventGroupHandle_t xEventGroup;
@@ -200,11 +213,11 @@ void RTC_IRQHandler(void) {
     if (RTC_GetITStatus(RTC_IT_SEC) != RESET) {
         RTC_ClearITPendingBit(RTC_IT_SEC);
         //每5秒更新一次界面上的时间显示，或者发送给app_task.c中的时间更新队列,显示在界面上
-        RTC_TimeTypeDef current_time;
-        BSP_RTC_GetDateTime(&current_time); // 获取当前时间
-        APP_LOG("Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n", 
-                current_time.year, current_time.month, current_time.day, 
-                current_time.hour, current_time.min, current_time.sec);
+        // RTC_TimeTypeDef current_time;
+        // BSP_RTC_GetDateTime(&current_time); // 获取当前时间
+        // APP_LOG("Current Time: %04d-%02d-%02d %02d:%02d:%02d\r\n", 
+        //         current_time.year, current_time.month, current_time.day, 
+        //         current_time.hour, current_time.min, current_time.sec);
         RTC_WaitForLastTask();
     }
 }

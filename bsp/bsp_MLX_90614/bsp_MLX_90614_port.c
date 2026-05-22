@@ -263,7 +263,7 @@ MLX90614_Status_t MLX90614_Port_BindHandlerInput(th_handler_input_instance_t *in
     input->mlx90614_instance = driver;
     input->iic_driver_interface = driver->p_iic_instance;
     input->timebase_interface = driver->p_timebase_instance;
-    input->os_timebase_interface = driver->p_timebase_instance;
+    input->os_timebase_interface = driver->p_os_timebase_instance;
     input->os_handler_instance = &g_mlx90614_freertos_if;
     return MLX90614_OK;
 }

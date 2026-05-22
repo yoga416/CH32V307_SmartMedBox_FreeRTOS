@@ -18,70 +18,75 @@ extern "C" {
 typedef struct
 {
   
-	lv_obj_t *screen;
-	bool screen_del;
-	lv_obj_t *screen_cont_1;
-	lv_obj_t *screen_label_1;
-	lv_obj_t *screen_label_2;
-	lv_obj_t *screen_label_4;
-	lv_obj_t *screen_label_5;
-	lv_obj_t *screen_label_6;
-	lv_obj_t *screen_label_7;
-	lv_obj_t *screen_label_8;
-	lv_obj_t *screen_btn_1;
-	lv_obj_t *screen_btn_1_label;
-	lv_obj_t *screen_label_3;
-	lv_obj_t *screen_1;
-	bool screen_1_del;
-	lv_obj_t *screen_1_cont_1;
-	lv_obj_t *screen_1_btn_1;
+	
+	lv_obj_t *screen;//屏幕
+	bool screen_del;//屏幕删除标志
+	lv_obj_t *screen_cont;//屏幕容器
+	lv_obj_t *screen_cont_1;//屏幕1容器
+	lv_obj_t *screen_label_1;//WIFI标签
+	lv_obj_t *screen_label_2;//WIFI --
+	lv_obj_t *screen_label_4;//时间标签（时分秒）
+	lv_obj_t *screen_label_5;//盒内温度
+	lv_obj_t *screen_label_6;//盒内湿度
+	lv_obj_t *screen_label_7;//盒内温度--
+	lv_obj_t *screen_label_8;//盒内湿度--
+	lv_obj_t *screen_btn_1;//按键（next）
+	lv_obj_t *screen_btn_1_label;//按键next文本
+	lv_obj_t *screen_label_3;//时间标签（年月日）
+	lv_obj_t *screen_1;//屏幕1
+	bool screen_1_del;//屏幕1删除标志
+	lv_obj_t *screen_1_cont_1;//屏幕1容器
+	lv_obj_t *screen_1_btn_1;//查看记录（按键）
 	lv_obj_t *screen_1_btn_1_label;
-	lv_obj_t *screen_1_btn_2;
+	lv_obj_t *screen_1_btn_2;//吃药（按键）
 	lv_obj_t *screen_1_btn_2_label;
-	lv_obj_t *screen_1_btn_3;
+	lv_obj_t *screen_1_btn_3;//用药方案（按键）
 	lv_obj_t *screen_1_btn_3_label;
-	lv_obj_t *screen_1_btn_4;
-	lv_obj_t *screen_1_btn_4_label;
-	lv_obj_t *screen_2;
-	bool screen_2_del;
-	lv_obj_t *screen_2_cont_1;
-	lv_obj_t *screen_2_label_1;
-	lv_obj_t *screen_2_label_2;
-	lv_obj_t *screen_2_label_3;
-	lv_obj_t *screen_2_label_4;
-	lv_obj_t *screen_2_label_5;
-	lv_obj_t *screen_2_label_6;
-	lv_obj_t *screen_2_label_10;
-	lv_obj_t *screen_2_label_11;
-	lv_obj_t *screen_2_label_12;
-	lv_obj_t *screen_2_label_13;
-	lv_obj_t *screen_2_label_14;
-	lv_obj_t *screen_2_label_15;
-	lv_obj_t *screen_2_btn_1;
-	lv_obj_t *screen_2_btn_1_label;
+	lv_obj_t *screen_1_btn_4;//返回主页面（按键）
+	lv_obj_t *screen_1_btn_4_label;//屏幕1标签
+
+	lv_obj_t *screen_2;//屏幕2
+	bool screen_2_del;//屏幕2删除标志
+	lv_obj_t *screen_2_cont_1;//屏幕2容器
+	lv_obj_t *screen_2_label_1;//漏服记录
+	lv_obj_t *screen_2_label_2;//1.------
+	lv_obj_t *screen_2_label_3;//4.------
+	lv_obj_t *screen_2_label_4;//2.------
+	lv_obj_t *screen_2_label_5;//3.------
+	lv_obj_t *screen_2_label_6;//健康数据
+	lv_obj_t *screen_2_label_10;//心率数据
+	lv_obj_t *screen_2_label_11;//血氧数据
+	lv_obj_t *screen_2_label_12;//体温数据
+	lv_obj_t *screen_2_label_13;//心率数据--
+	lv_obj_t *screen_2_label_14;//血氧数据--
+	lv_obj_t *screen_2_label_15;//体温数据--
+	lv_obj_t *screen_2_btn_1;//返回上一页（按键）
+	lv_obj_t *screen_2_btn_1_label;//返回上一页文本
+
 	lv_obj_t *screen_3;
-	bool screen_3_del;
-	lv_obj_t *screen_3_cont_1;
-	lv_obj_t *screen_3_label_1;
-	lv_obj_t *screen_3_btn_1;
-	lv_obj_t *screen_3_btn_1_label;
+	bool screen_3_del;//设置页面删除标志
+	lv_obj_t *screen_3_cont_1;//设置页面容器
+	lv_obj_t *screen_3_label_1;//设置页面标签
+	lv_obj_t *screen_3_btn_1;//返回上一页（按键）
+	lv_obj_t *screen_3_btn_1_label;//文本
+
 	lv_obj_t *screen_4;
 	bool screen_4_del;
-	lv_obj_t *screen_4_cont_1;
-	lv_obj_t *screen_4_label_1;
-	lv_obj_t *screen_4_label_2;
-	lv_obj_t *screen_4_label_3;
-	lv_obj_t *screen_4_ddlist_2;
-	lv_obj_t *screen_4_ddlist_3;
-	lv_obj_t *screen_4_btn_1;
-	lv_obj_t *screen_4_btn_1_label;
-	lv_obj_t *screen_4_label_21;
-	lv_obj_t *screen_4_label_20;
-	lv_obj_t *screen_4_label_19;
-	lv_obj_t *screen_4_label_24;
-	lv_obj_t *screen_4_label_23;
-	lv_obj_t *screen_4_label_22;
-	lv_obj_t *screen_4_ddlist_4;
+	lv_obj_t *screen_4_cont_1;//屏幕4容器
+	lv_obj_t *screen_4_label_1;//Locating 1
+	lv_obj_t *screen_4_label_2;//吃药时间设定
+	lv_obj_t *screen_4_label_3;//吃药颗数
+	lv_obj_t *screen_4_ddlist_2;//locating 2 下拉列表
+	lv_obj_t *screen_4_ddlist_3;//locating 3 下拉列表
+	lv_obj_t *screen_4_btn_1;//保存返回上一页（按键）
+	lv_obj_t *screen_4_btn_1_label;//保存返回上一页文本
+	lv_obj_t *screen_4_label_21;//locating 2 吃药吃药颗数
+	lv_obj_t *screen_4_label_20;//locating 2 吃药时间设定
+	lv_obj_t *screen_4_label_19;//Locating 2
+	lv_obj_t *screen_4_label_24;//locating 3 吃药吃药颗数
+	lv_obj_t *screen_4_label_23;//locating 3 吃药时间设定
+	lv_obj_t *screen_4_label_22;//locating 3
+	lv_obj_t *screen_4_ddlist_4;//locating 1 下拉列表
 }lv_ui;
 
 typedef void (*ui_setup_scr_t)(lv_ui * ui);

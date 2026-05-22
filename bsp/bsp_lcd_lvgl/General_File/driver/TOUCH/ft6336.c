@@ -191,7 +191,8 @@ const u16 FT6336_TPX_TBL[2]={FT_TP1_REG,FT_TP2_REG};
 ******************************************************************************/	
 u8 FT6336_Scan(void)
 {
-    u8 buf[4];
+
+    u8 buf[16];
     u8 i = 0;
     u8 res = 0;
     u8 mode = 0;
@@ -199,7 +200,7 @@ u8 FT6336_Scan(void)
     // 读取触摸点的状态
     FT6336_RD_Reg(FT_REG_NUM_FINGER, &mode, 1);
     
-    if(mode > 0 && mode < 3)  // 有触摸点按下
+    if(mode > 0 && mode < 7)  // 有触摸点按下
     {
         // 更新触摸状态
         tp_dev.sta = TP_PRES_DOWN | TP_CATH_PRES;

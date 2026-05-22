@@ -1,4 +1,5 @@
 #include "bsp_max_30102_driver.h"
+#include <stdio.h>
 #include <string.h>
 
 static void internal_delay(bsp_max30102_driver_t *p, uint32_t ms) {
