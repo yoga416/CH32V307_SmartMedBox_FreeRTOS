@@ -115,7 +115,8 @@ void tianwen_task(void *pvParameters)
         else
         {
             time++;
-            if(time>=100)            
+            //定时发送环境温湿度测量命令，模拟语音触发（实际使用时可以去掉这个定时器，完全依赖语音指令触发）
+            if(time>=200)            
             {
                 time=0;
             test_cmd = CMD_MEASURE_ENV_TEMP_HUMI;

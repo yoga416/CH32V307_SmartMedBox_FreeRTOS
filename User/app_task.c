@@ -35,11 +35,12 @@
 #include "touch.h"
 #include "ctpiic.h"
 #include <stdio.h>
+#include <string.h>
 #include "lvgl.h"
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
 #include "lv_port_indev.h"
-
+#include "information.h"
 #include "gui_guider.h"
 #include "events_init.h"
 
@@ -74,6 +75,8 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
 
  extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
  extern SystemCommand_t received_cmd;
+ UI_DisplayData_t g_ui_data; // 全局 UI 数据结构实例
+
 void check_medication_time(void); // 声明检查吃药时间的函数
  // 定义吃药时间表
 AlarmSche my_meds[MAX_SCHE] = {
@@ -178,113 +181,144 @@ void lcd_task(void *pvParameters)
 void sensor_lcd_task(void *pvParameters)
 {
     static Tianwen_Packet_t sensor_lcd_packet;
-    static RTC_TimeTypeDef current_time; 
-    
     uint32_t last_rtc_update_tick = 0;
     uint32_t current_tick = 0;
 
     (void)pvParameters;
+
+    // --- 初始化静态模拟数据并标记需要刷新 ---
+    g_ui_data.wifi_status = 'T';
     
+    // 初始化漏服记录
+    g_ui_data.missed_records[0] = (MissedDoseRecord){1, "2026/05/20", "08:00"};
+    g_ui_data.missed_records[1] = (MissedDoseRecord){2, "2026/05/21", "12:30"};
+    g_ui_data.missed_records[2] = (MissedDoseRecord){3, "2026/05/22", "19:00"};
+    g_ui_data.missed_records[3] = (MissedDoseRecord){4, "2026/05/23", "22:00"};
+    
+    // 拷贝闹钟时间表 (假设 my_meds 已经在外部定义)
+    memcpy(g_ui_data.meds_schedule, my_meds, sizeof(my_meds));
+
+    // 开机强制全屏刷新一次静态数据
+    g_ui_data.update_flags |= (UI_FLAG_WIFI | UI_FLAG_RECORDS | UI_FLAG_SCHEDULE);
+
     for(;;)
     {
         // 1. 触摸屏扫描
         FT6336_Scan();
 
-        // 2. 接收传感器数据队列
+        // ==========================================
+        // 第一部分：数据接收与结构体更新 (不操作 GUI)
+        // ==========================================
+        
+        // 接收传感器数据队列 (等待 20ms)
         if(xQueueReceive(sensor_data_lcd_queue, &sensor_lcd_packet, pdMS_TO_TICKS(20)) == pdPASS) 
         {
             switch(sensor_lcd_packet.id)
             {
                 case SENSOR_ID_HEART_RATE_SPO2: 
-                {
-                    uint16_t heart_rate = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
-                    uint16_t spo2       = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
-
-                    int hr_int   = heart_rate / 100;
-                    int hr_dec   = heart_rate % 100;
-                    int spo2_int = spo2 / 100;
-                    int spo2_dec = spo2 % 100;
-
-                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
-                        if (lv_obj_is_valid(guider_ui.screen_2_label_13)) {
-                            //lv_label_set_text_fmt(guider_ui.screen_label_5, "%d.%02d bpm", hr_int, hr_dec);
-                            lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d.%02d bpm", 65, 00); // 模拟数据，实际使用时替换为 hr_int 和 hr_dec
-                        }
-                        if (lv_obj_is_valid(guider_ui.screen_2_label_14)) {
-                            //lv_label_set_text_fmt(guider_ui.screen_label_6, "%d.%02d %%", spo2_int, spo2_dec);
-                            lv_label_set_text_fmt(guider_ui.screen_2_label_14, "%d.%02d %%", 98, 5); // 模拟数据，实际使用时替换为 spo2_int 和 spo2_dec
-                        }
-                        xSemaphoreGive(xGuiMutex);
-                    }
+                    g_ui_data.heart_rate = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
+                    g_ui_data.spo2       = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
+                    g_ui_data.update_flags |= UI_FLAG_HR_SPO2; // 标记需要刷新
                     break;
-                }
+
                 case SENSOR_ID_MLX_TEMP_BOTH: 
-                {
-                    uint16_t temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
-                    int temp_int = temp / 100;
-                    int temp_dec = temp % 100;
-
-                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
-                        if (lv_obj_is_valid(guider_ui.screen_2_label_15)) {
-                            //lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
-                            lv_label_set_text_fmt(guider_ui.screen_2_label_15, "%d.%02d°C", 36, 5); // 模拟数据，实际使用时替换为 temp_int 和 temp_dec
-                        }
-                        xSemaphoreGive(xGuiMutex); 
-                    }  
-                    break;  
-                }
-                case SENSOR_ID_TEMPERATURE_HUMIDITY: 
-                {
-                    uint16_t temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
-                    uint16_t humi = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
-
-                    int temp_int = temp / 100;
-                    int temp_dec = temp % 100;
-                    int humi_int = humi / 100;
-                    int humi_dec = humi % 100;
-
-                    if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
-                        if (lv_obj_is_valid(guider_ui.screen_label_7)) {
-                            lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", temp_int, temp_dec);
-                        }
-                        if (lv_obj_is_valid(guider_ui.screen_label_8)) {
-                            lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", humi_int, humi_dec);
-                        }
-                        xSemaphoreGive(xGuiMutex);
-                    }
+                    g_ui_data.body_temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
+                    g_ui_data.update_flags |= UI_FLAG_BODY_TEMP;
                     break;
-                }
-                default:
+
+                case SENSOR_ID_TEMPERATURE_HUMIDITY: 
+                    g_ui_data.env_temp = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
+                    g_ui_data.env_humi = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
+                    g_ui_data.update_flags |= UI_FLAG_ENV_TH;
                     break;
             }
         }
         
-        // 3. 限制半秒一次刷新 RTC 时间
+        // 限制 1秒一次刷新 RTC 时间
         current_tick = xTaskGetTickCount();
         if ((current_tick - last_rtc_update_tick) >= pdMS_TO_TICKS(1000)) 
         {
             last_rtc_update_tick = current_tick;
-            BSP_RTC_GetDateTime(&current_time);
+            BSP_RTC_GetDateTime(&g_ui_data.time);
+            g_ui_data.update_flags |= UI_FLAG_TIME;
+        }
 
-            if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) 
+        // ==========================================
+        // 第二部分：统一执行 LVGL UI 渲染
+        // ==========================================
+        
+        // 只有当有数据发生变化时，才去获取互斥锁刷新屏幕
+        if (g_ui_data.update_flags != 0) 
+        {
+            if(xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
             {
-                if (lv_obj_is_valid(guider_ui.screen_label_4)) {
-                    lv_label_set_text_fmt(guider_ui.screen_label_4, "%02d:%02d:%02d", 
-                                          current_time.hour, current_time.min, current_time.sec);
+                // 1. 刷新心率血氧
+                if (g_ui_data.update_flags & UI_FLAG_HR_SPO2) {
+                    if (lv_obj_is_valid(guider_ui.screen_2_label_13))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d.%02d b", g_ui_data.heart_rate/100, g_ui_data.heart_rate%100); 
+                    if (lv_obj_is_valid(guider_ui.screen_2_label_14))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_14, "%d.%02d %%", g_ui_data.spo2/100, g_ui_data.spo2%100); 
                 }
-                if (lv_obj_is_valid(guider_ui.screen_label_3)) {
-                    lv_label_set_text_fmt(guider_ui.screen_label_3, "%04d/%02d/%02d", 
-                                          current_time.year, current_time.month, current_time.day);
+
+                // 2. 刷新体温 
+                if (g_ui_data.update_flags & UI_FLAG_BODY_TEMP) {
+                    if (lv_obj_is_valid(guider_ui.screen_2_label_12)) // 应该使用体温的 label，假设是 12
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_12, "%d.%02d°C", g_ui_data.body_temp/100, g_ui_data.body_temp%100);
                 }
-                if (lv_obj_is_valid(guider_ui.screen_label_2)) {
-                    lv_label_set_text(guider_ui.screen_label_2, "1");
+
+                // 3. 刷新环境温湿度
+                if (g_ui_data.update_flags & UI_FLAG_ENV_TH) {
+                    if (lv_obj_is_valid(guider_ui.screen_label_7))
+                        lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", g_ui_data.env_temp/100, g_ui_data.env_temp%100);
+                    if (lv_obj_is_valid(guider_ui.screen_label_8))
+                        lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", g_ui_data.env_humi/100, g_ui_data.env_humi%100);
                 }
-                xSemaphoreGive(xGuiMutex); // 【已修正】只在成功获取锁的 if 内部释放锁！
+
+                // 4. 刷新时间
+                if (g_ui_data.update_flags & UI_FLAG_TIME) {
+                    if (lv_obj_is_valid(guider_ui.screen_label_4))
+                        lv_label_set_text_fmt(guider_ui.screen_label_4, "%02d:%02d:%02d", g_ui_data.time.hour, g_ui_data.time.min, g_ui_data.time.sec);
+                    if (lv_obj_is_valid(guider_ui.screen_label_3))
+                        lv_label_set_text_fmt(guider_ui.screen_label_3, "%04d/%02d/%02d", g_ui_data.time.year, g_ui_data.time.month, g_ui_data.time.day);
+                }
+
+                // 5. 刷新WIFI
+                if (g_ui_data.update_flags & UI_FLAG_WIFI) {
+                    if (lv_obj_is_valid(guider_ui.screen_label_2))
+                        lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data.wifi_status);
+                }
+
+                // 6. 刷新漏服记录 (静态数据，只有开机或有新记录时刷新一次)
+                if (g_ui_data.update_flags & UI_FLAG_RECORDS) {
+                    if(lv_obj_is_valid(guider_ui.screen_2_label_2))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_2,"id:%d date:%s time:%s", g_ui_data.missed_records[0].id, g_ui_data.missed_records[0].date, g_ui_data.missed_records[0].time); 
+                    if(lv_obj_is_valid(guider_ui.screen_2_label_4))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_4,"id:%d date:%s time:%s", g_ui_data.missed_records[1].id, g_ui_data.missed_records[1].date, g_ui_data.missed_records[1].time); 
+                    if(lv_obj_is_valid(guider_ui.screen_2_label_5))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_5,"id:%d date:%s time:%s", g_ui_data.missed_records[2].id, g_ui_data.missed_records[2].date, g_ui_data.missed_records[2].time); 
+                    if(lv_obj_is_valid(guider_ui.screen_2_label_3))
+                        lv_label_set_text_fmt(guider_ui.screen_2_label_3,"id:%d date:%s time:%s", g_ui_data.missed_records[3].id, g_ui_data.missed_records[3].date, g_ui_data.missed_records[3].time); 
+                }
+
+                // 7. 刷新用药方案
+                if (g_ui_data.update_flags & UI_FLAG_SCHEDULE) {
+                    if(lv_obj_is_valid(guider_ui.screen_4_label_2))
+                        lv_label_set_text_fmt(guider_ui.screen_4_label_2, "Time: %02d:%02d", g_ui_data.meds_schedule[0].hour, g_ui_data.meds_schedule[0].min);
+                    if(lv_obj_is_valid(guider_ui.screen_4_label_20))
+                        lv_label_set_text_fmt(guider_ui.screen_4_label_20, "Time: %02d:%02d", g_ui_data.meds_schedule[1].hour, g_ui_data.meds_schedule[1].min);
+                    if(lv_obj_is_valid(guider_ui.screen_4_label_23))
+                        lv_label_set_text_fmt(guider_ui.screen_4_label_23, "Time: %02d:%02d", g_ui_data.meds_schedule[2].hour, g_ui_data.meds_schedule[2].min);
+                }
+
+                // 刷新完毕，清除所有脏标志位
+                g_ui_data.update_flags = 0; 
+
+                xSemaphoreGive(xGuiMutex);
             }
         }
         
-        // 保持 100ms 一次的循环延时
-        vTaskDelay(pdMS_TO_TICKS(100));
+        // 适当缩减循环延时，让触摸和数据读取更顺畅 (由于渲染移入了标志位判断，不再浪费CPU)
+        vTaskDelay(pdMS_TO_TICKS(50));
     }   
 }
 

@@ -74,8 +74,8 @@ void setup_scr_screen_4(lv_ui *ui)
     ui->screen_4_label_2 = lv_label_create(ui->screen_4_cont_1);
     lv_label_set_text(ui->screen_4_label_2, "Time:--");
     lv_label_set_long_mode(ui->screen_4_label_2, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_4_label_2, 6, 55);
-    lv_obj_set_size(ui->screen_4_label_2, 110, 27);
+    lv_obj_set_pos(ui->screen_4_label_2, -60, 55);
+    lv_obj_set_size(ui->screen_4_label_2, 320, 27);
 
     //Write style for screen_4_label_2, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_border_width(ui->screen_4_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -296,8 +296,8 @@ void setup_scr_screen_4(lv_ui *ui)
     ui->screen_4_label_20 = lv_label_create(ui->screen_4_cont_1);
     lv_label_set_text(ui->screen_4_label_20, "Time:--");
     lv_label_set_long_mode(ui->screen_4_label_20, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_4_label_20, 8, 172);
-    lv_obj_set_size(ui->screen_4_label_20, 110, 27);
+    lv_obj_set_pos(ui->screen_4_label_20, -60, 172);
+    lv_obj_set_size(ui->screen_4_label_20, 320, 27);
 
     //Write style for screen_4_label_20, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_border_width(ui->screen_4_label_20, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -365,8 +365,8 @@ void setup_scr_screen_4(lv_ui *ui)
     ui->screen_4_label_23 = lv_label_create(ui->screen_4_cont_1);
     lv_label_set_text(ui->screen_4_label_23, "Time:--");
     lv_label_set_long_mode(ui->screen_4_label_23, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_4_label_23, 8, 299);
-    lv_obj_set_size(ui->screen_4_label_23, 110, 27);
+    lv_obj_set_pos(ui->screen_4_label_23, -60, 299);
+    lv_obj_set_size(ui->screen_4_label_23, 320, 27);
 
     //Write style for screen_4_label_23, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_border_width(ui->screen_4_label_23, 0, LV_PART_MAIN|LV_STATE_DEFAULT);

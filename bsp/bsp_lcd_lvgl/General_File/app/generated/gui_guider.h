@@ -74,19 +74,19 @@ typedef struct
 	bool screen_4_del;
 	lv_obj_t *screen_4_cont_1;//屏幕4容器
 	lv_obj_t *screen_4_label_1;//Locating 1
-	lv_obj_t *screen_4_label_2;//吃药时间设定
-	lv_obj_t *screen_4_label_3;//吃药颗数
-	lv_obj_t *screen_4_ddlist_2;//locating 2 下拉列表
-	lv_obj_t *screen_4_ddlist_3;//locating 3 下拉列表
+	lv_obj_t *screen_4_label_2;//Locating 1吃药时间设定
+	lv_obj_t *screen_4_label_3;//Locating 1吃药颗数
+	lv_obj_t *screen_4_ddlist_2;//Locating 2 下拉列表
+	lv_obj_t *screen_4_ddlist_3;//Locating 3 下拉列表
 	lv_obj_t *screen_4_btn_1;//保存返回上一页（按键）
 	lv_obj_t *screen_4_btn_1_label;//保存返回上一页文本
-	lv_obj_t *screen_4_label_21;//locating 2 吃药吃药颗数
-	lv_obj_t *screen_4_label_20;//locating 2 吃药时间设定
+	lv_obj_t *screen_4_label_21;//Locating 2 吃药吃药颗数
+	lv_obj_t *screen_4_label_20;//Locating 2 吃药时间设定
 	lv_obj_t *screen_4_label_19;//Locating 2
-	lv_obj_t *screen_4_label_24;//locating 3 吃药吃药颗数
-	lv_obj_t *screen_4_label_23;//locating 3 吃药时间设定
-	lv_obj_t *screen_4_label_22;//locating 3
-	lv_obj_t *screen_4_ddlist_4;//locating 1 下拉列表
+	lv_obj_t *screen_4_label_24;//Locating 3 吃药吃药颗数
+	lv_obj_t *screen_4_label_23;//Locating 3 吃药时间设定
+	lv_obj_t *screen_4_label_22;//Locating 3
+	lv_obj_t *screen_4_ddlist_4;//Locating 1 下拉列表
 }lv_ui;
 
 typedef void (*ui_setup_scr_t)(lv_ui * ui);

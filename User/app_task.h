@@ -7,10 +7,10 @@
 #include "Middle_ring_buffer.h"
 /* 任务优先级定义 */
 #define USART_TASK_PRIO     4
-#define SENSOR_TASK_PRIO    3
+#define SENSOR_TASK_PRIO    2
 #define APP_TASK_PRIO       3
 #define TIANWEN_TASK_PRIO    4
-#define LCD_TASK            2 
+#define LCD_TASK            3 
 #define WATCHDOG_TASK_PRIO   4
 #define BSP_SHT40_TASK_PRIO  3
 #define BSP_MLX90614_TASK_PRIO 3
@@ -75,6 +75,7 @@ typedef struct {
     AppEventType_t event_id;
     uint32_t       data;       // 预留参数，比如可以用来传错误码或者特定的数值
 } AppMsg_t;
+
 
 // 声明全局队列句柄
 extern QueueHandle_t xAppEventQueue;
