@@ -36,16 +36,16 @@ static MAX_DRIVER_Status_t max30102_init(bsp_max30102_driver_t *p) {
     return MAX_DRIVER_ERROR;
     }           
 
-    // 2. 中断配置：开启新数据就绪中断 (依然需要，用来触发 PC6)
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_ENABLE_1, 0xC0); 
+    // 2. 中断配置：只开启 PPG_RDY 中断 (0x40)，不开启 A_FULL，避免 FIFO 积压时重复触发
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_ENABLE_1, 0x40); 
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_ENABLE_2, 0x00);
 
     // 3. FIFO 配置
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_WR_PTR, 0x00);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_OVF_COUNTER, 0x00);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_RD_PTR, 0x00);
-    // 3. FIFO 配置：不进行硬件平均以保持100Hz采样率 (SMP_AVE=000)
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_CONFIG, 0x0F);
+    // 3. FIFO 配置：SMP_AVE=000(无硬件平均)，开启 FIFO_ROLLOVER 防止溢出后丢数据
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_CONFIG, 0x1F); // 0x1F=0b0001_1111 → bit[4]=1 开启滚存
 
     // 4. 工作模式与参数
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_MODE_CONFIG, 0x03);
@@ -82,34 +82,9 @@ static MAX_DRIVER_Status_t max30102_get_filtered(bsp_max30102_driver_t *p, uint3
         return MAX_DRIVER_ERROR;
     }
 
-    // 2. 拼接有效数据
-    uint32_t r_raw = (((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | buf[2]) & 0x03FFFF;
-    uint32_t i_raw = (((uint32_t)buf[3] << 16) | ((uint32_t)buf[4] << 8) | buf[5]) & 0x03FFFF;
-
-    max_filter_data_t *f = &p->filter_state;
-
-    // 3. 滑动窗口维护
-    if (f->window_count < MAX30102_FILTER_WINDOW) {
-        f->window_count++;
-    }
-     else {
-        f->red_sum -= f->red_window[f->window_index];
-        f->ir_sum  -= f->ir_window[f->window_index];
-    }
-    
-    f->red_window[f->window_index] = r_raw;
-    f->ir_window[f->window_index]  = i_raw;
-    f->red_sum += r_raw;
-    f->ir_sum  += i_raw;
-    
-    *red_f = f->red_sum / f->window_count;
-    *ir_f  = f->ir_sum  / f->window_count;
-    
-    // 4. 更新窗口索引
-    if (++f->window_index >= MAX30102_FILTER_WINDOW) 
-    {
-        f->window_index = 0;
-    }
+    // 2. 拼接有效数据并直接返回原始值（不过滑动滤波，将滤波任务交给 algorithm_1.c 的专业算法）
+    *red_f = (((uint32_t)buf[0] << 16) | ((uint32_t)buf[1] << 8) | buf[2]) & 0x03FFFF;
+    *ir_f  = (((uint32_t)buf[3] << 16) | ((uint32_t)buf[4] << 8) | buf[5]) & 0x03FFFF;
     
     return MAX_DRIVER_OK;
 }

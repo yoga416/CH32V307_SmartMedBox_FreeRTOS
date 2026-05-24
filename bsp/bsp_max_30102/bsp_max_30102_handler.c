@@ -99,7 +99,7 @@ void max30102_handler_task(void *argument)
                     handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy_status);
 
                     // === 【第二步：核心采集循环（状态机架构）】 ===
-                    #define IR_FINGER_THRESHOLD 30000 // 手指检测阈值
+                    #define IR_FINGER_THRESHOLD 15000 // 手指检测阈值(调低避免微小抖动误判脱落)
                     #define PREHEAT_STABLE_COUNT 50  // 预热稳定点数 (100Hz下 50点=0.5s，让手指放稳且让滑动滤波稳定)
                     #define MAX_TIMEOUT_EMPTY 200    // 空等超时 (200点=2.0s，增加超时宽容度)
 
@@ -116,8 +116,8 @@ void max30102_handler_task(void *argument)
                             
 
                             handler->max30102_instance->pf_get_filtered(handler->max30102_instance, &red, &ir);
-                            // 清除硬件中断位
-                            handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy_status);
+                            // ⚠ 采集循环内不再额外清中断：硬件在 FIFO 读取后会更新状态，防止误清导致丢失中断
+                            // handler->max30102_instance->hw->pf_read_reg(ctx, MAX30102_I2C_ADDR, REG_INTR_STATUS_1, &dummy_status);
                             
 #ifdef MAX30102_HANDLER_DEBUG
                             APP_LOG("[Handler] Valid: %ld | Red=%lu, IR=%lu\n", valid_points, red, ir);
@@ -204,13 +204,15 @@ void max30102_handler_task(void *argument)
                     } 
                     else 
                     {
-                        // 测量失败或中途放弃：
-                        // 1. 调用回调并传入 0，触发 App 层滤波器的清零逻辑
+                        if (is_aborted) {
+                            printf("[Handler] 测量中止：手指未放入 或 I2C/中断超时！\r\n");
+                        } else {
+                            printf("[Handler] 测量结束，但数据质量太差，算法无法计算出心率！\r\n");
+                        }
+
+                        // 调用回调通知失败
                         if (event.pf_calc_callback) event.pf_calc_callback(0, 0, 0, 0);
-#ifdef MAX30102_HANDLER_DEBUG
-                        APP_LOG("Measurement aborted. Timeout or finger removed.\n");
-#endif
-                        // 2. 强制给系统一个 2 秒的“冷静期”，防止立刻进入下一次错误的采集循环
+                        // 强制给系统一个"冷静期"，防止立刻进入下一次错误的采集循环
                         vTaskDelay(pdMS_TO_TICKS(500));
                     }
                     break;
