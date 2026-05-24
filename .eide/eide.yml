@@ -50,6 +50,7 @@ targets:
         - bsp/bsp_max_30102
         - bsp/bsp_MLX_90614
         - bsp/bsp_rtc
+        - bsp/bsp_w25q64_information
         - bsp/bsp_lcd_lvgl
         - bsp/bsp_lcd_lvgl/lvgl
         - bsp/bsp_lcd_lvgl/General_File/driver/LCD

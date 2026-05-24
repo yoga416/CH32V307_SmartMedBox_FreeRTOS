@@ -1,8 +1,8 @@
 #include "bsp_rtc.h"
 #include <time.h>
-
+#include "information.h" // 引入全局数据结构定义
 // 定义吃药时间表
-extern AlarmSche my_meds[MAX_SCHE];
+extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
 
 void BSP_RTC_Init(void) 
 {

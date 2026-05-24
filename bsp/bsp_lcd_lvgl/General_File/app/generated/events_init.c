@@ -15,6 +15,11 @@
 #include "freemaster_client.h"
 #endif
 
+AlarmSche my_meds[3] = {
+      {10, 01, 1},  
+      {10, 02, 1}, 
+      {10, 03, 1}   
+};
 /* * 统一的全局指针清理函数
  * 每次离开当前屏幕前调用此函数，彻底切断所有旧控件与后台任务的联系，防止野指针导致的 HardFault 
  */
@@ -206,7 +211,38 @@ static void screen_2_btn_1_event_handler (lv_event_t *e)
     lv_event_code_t code = lv_event_get_code(e);
     switch (code) {
     case LV_EVENT_CLICKED:
-    {
+    {        /* =================== 保存设置 =================== */
+        // 1. 从下拉列表中读取三个时段设置的数值
+        //    假设 ddlist_4 / ddlist_2 / ddlist_3 格式为 "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23"
+        char buf_hour[4];
+
+        // 时段1: ddlist_4
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_4, buf_hour, sizeof(buf_hour));
+        g_ui_data.meds_schedule[0].hour = (uint8_t)atoi(buf_hour);
+        g_ui_data.meds_schedule[0].min  = 0;
+
+        // 时段2: ddlist_2
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_2, buf_hour, sizeof(buf_hour));
+        g_ui_data.meds_schedule[1].hour = (uint8_t)atoi(buf_hour);
+        g_ui_data.meds_schedule[1].min  = 0;
+
+        // 时段3: ddlist_3
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_3, buf_hour, sizeof(buf_hour));
+        g_ui_data.meds_schedule[2].hour = (uint8_t)atoi(buf_hour);
+        g_ui_data.meds_schedule[2].min  = 0;
+
+        // 2. 同步到全局 my_meds
+        memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+
+        // 3. 保存到 Flash
+        SystemData_Save_To_Flash();
+
+        // 4. 标记 UI 刷新
+        g_ui_data.update_flags |= UI_FLAG_SCHEDULE;
+
+        // 5. 更新下一个闹钟
+        BSP_RTC_UpdateNextAlarm();
+
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_1, guider_ui.screen_1_del, &guider_ui.screen_2_del, setup_scr_screen_1, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
         break;
@@ -229,7 +265,30 @@ static void screen_3_btn_1_event_handler (lv_event_t *e)
     lv_event_code_t code = lv_event_get_code(e);
     switch (code) {
     case LV_EVENT_CLICKED:
-    {
+    {        /* =================== 保存设置 =================== */
+        char buf[4];
+
+        // 时段1: ddlist_4 (假设下拉选项为 "0\n1\n2\n...\n23")
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_4, buf, sizeof(buf));
+        g_ui_data.meds_schedule[0].hour = (uint8_t)atoi(buf);
+        g_ui_data.meds_schedule[0].min  = 0;
+        // 时段1颗数: label_3 (需从控件读取, 暂用0)
+        // 时段2: ddlist_2
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_2, buf, sizeof(buf));
+        g_ui_data.meds_schedule[1].hour = (uint8_t)atoi(buf);
+        g_ui_data.meds_schedule[1].min  = 0;
+        // 时段3: ddlist_3
+        lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_3, buf, sizeof(buf));
+        g_ui_data.meds_schedule[2].hour = (uint8_t)atoi(buf);
+        g_ui_data.meds_schedule[2].min  = 0;
+
+        // 同步到全局 my_meds 并保存 Flash
+        memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+        SystemData_Save_To_Flash();
+
+        // 更新闹钟
+        BSP_RTC_UpdateNextAlarm();
+
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_1, guider_ui.screen_1_del, &guider_ui.screen_3_del, setup_scr_screen_1, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
         break;
@@ -253,10 +312,12 @@ static void screen_4_btn_1_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
+        
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_1, guider_ui.screen_1_del, &guider_ui.screen_4_del, setup_scr_screen_1, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
         break;
     }
+
     default:
         break;
     }

@@ -180,15 +180,16 @@ void MLX90614_Port_OnDataReady(float *surface_temp, float *body_temp)
         printf("[ERROR] MLX90614 Callback] Data pointer is NULL\r\n");
         return;
     }
-    body_temp_x100 = (int32_t)(*body_temp * 100.0f);
+    body_temp_x100 = (int16_t)(*body_temp * 100.0f);
     APP_LOG("[MLX90614] Body=%ld\r\n", (long)body_temp_x100);
    // 发送给天问通信任务
     Tianwen_Packet_t tianwen_packet;
     tianwen_packet.id = SENSOR_ID_MLX_TEMP_BOTH;
     tianwen_packet.data_len = 2; // 4字节表面温度 + 4字节人体温度
-    // 【加上这 4 行赋值代码】：把体温数据放进准备发送的包裹里
-    // 【加上这 4 行赋值代码】：把体温数据放进准备发送的包裹里
-   memcpy(&tianwen_packet.data[0], &body_temp_x100, 2); // 只发送体温的低2字节，节省带宽
+   memcpy(&tianwen_packet.data[0], &body_temp_x100, 2); // 只发送体温，表面温度暂不发送
+     if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
+        printf("[MLX90614] Failed to send data to Tianwen queue!\r\n");
+    }
 
     if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
         printf("[MLX90614] Failed to send data to Tianwen queue!\r\n");

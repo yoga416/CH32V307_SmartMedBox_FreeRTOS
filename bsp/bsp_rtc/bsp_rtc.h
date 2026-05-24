@@ -14,14 +14,6 @@ typedef struct {
     uint8_t  sec;
 } RTC_TimeTypeDef;
 
-#define MAX_SCHE 3 // 假设每天吃3次药
-
-typedef struct {
-    uint8_t hour;
-    uint8_t min;
-} AlarmSche;
-
-extern AlarmSche my_meds[MAX_SCHE]; // 你的吃药时间表
 // 函数声明
 void BSP_RTC_Init(void); // 初始化RTC并设置时间
 void BSP_RTC_SetDateTime(RTC_TimeTypeDef* time); // 设置时间
