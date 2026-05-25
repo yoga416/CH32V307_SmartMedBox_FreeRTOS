@@ -1,4 +1,4 @@
-#include "bsp_max_30102_port.h"
+﻿#include "bsp_max_30102_port.h"
 #include "ch32v30x.h"
 #include "task.h"
 #include "queue.h"
@@ -12,8 +12,8 @@ bsp_max30102_driver_t g_max30102;
 SemaphoreHandle_t xSem_MAX30102_Exti = NULL;
 // 定义一个静态重试计数器
 static uint8_t s_hr_retry_count = 0; 
-// 定义最大重试次数（比如重试 3 次，加上首次共 4 次）
-#define MAX_HR_RETRIES 3
+// 定义最大重试次数（共 1 次）
+#define MAX_HR_RETRIES 0
 
 // 定义滑动滤波窗口大小（建议 3 到 5，数值越大越平滑但响应越慢）
 #define HR_SPO2_FILTER_SIZE 3
@@ -411,44 +411,17 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
 
     if (is_data_valid) 
     {
-        // 测成功了！把重试计数器清零，留给下一次用户按键使用
         s_hr_retry_count = 0; 
 
-        // 2. 将有效数据压入滑动窗口进行滤波
-        g_hr_history[g_filter_idx] = hr;
-        g_spo2_history[g_filter_idx] = spo2;
-        g_filter_idx = (g_filter_idx + 1) % HR_SPO2_FILTER_SIZE;
-
-        // 3. 计算窗口内的平均值
-        int32_t smoothed_hr = 0;
-        float smoothed_spo2 = 0.0f;
-        uint8_t valid_count = 0;
-
-        for (int i = 0; i < HR_SPO2_FILTER_SIZE; i++) 
-        {
-            if (g_hr_history[i] > 0) 
-            {
-                smoothed_hr += g_hr_history[i];
-                smoothed_spo2 += g_spo2_history[i];
-                valid_count++;
-            }
-        }
+        // 屏蔽掉滑动滤波的过程，直接打印算法输出的原始（未经二次平滑）结果
+        APP_LOG("RAW Heart Rate: %ld bpm\r\n", hr);
         
-        if (valid_count > 0) 
-        {
-            smoothed_hr /= valid_count;
-            smoothed_spo2 /= valid_count;
-        }
+        uint32_t spo2_raw_int = (uint32_t)(spo2 * 10.0f + 0.5f); 
+        APP_LOG("RAW SpO2: %lu.%lu%%\r\n", spo2_raw_int / 10, spo2_raw_int % 10);
 
-        uint32_t spo2_int = (uint32_t)(smoothed_spo2 * 10.0f + 0.5f); 
-        APP_LOG("Smoothed Heart Rate: %ld bpm\r\n", smoothed_hr);
-        APP_LOG("Smoothed SpO2: %lu.%lu%%\r\n", spo2_int / 10, spo2_int % 10);
-
-        // 5. 适配新的变长协议进行打包
-        // 将数据扩大 100 倍以保持精度
-        uint32_t hr_X100   = (uint32_t)(smoothed_hr * 100);
-        
-        uint32_t spo2_X100 = (uint32_t)(smoothed_spo2 * 100);
+        // 5. 适配新的变长协议进行打包（使用原始的 hr 和 spo2）
+        uint32_t hr_X100   = (uint32_t)(hr * 100);
+        uint32_t spo2_X100 = (uint32_t)(spo2 * 100);
 
         //发送给天问适配新的变长协议进行打包
         Tianwen_Packet_t tianwen_packet;
@@ -501,7 +474,7 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
         if (s_hr_retry_count < MAX_HR_RETRIES) 
         {
             s_hr_retry_count++;
-            APP_LOG("[MAX30102] 正在自动重试测量... (%d/%d)\n", s_hr_retry_count, MAX_HR_RETRIES);
+            APP_LOG("[MAX30102] reinit begining (%d/%d)\n", s_hr_retry_count, MAX_HR_RETRIES);
             
             // 往控制中枢发命令，要求再测一次！
             if (xSysCmdQueue != NULL) {
@@ -512,7 +485,7 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
         else 
         {
             // 重试次数耗尽
-            printf("[MAX30102] 连续 %d 次测量失败，已放弃。请将手指放平稳后重新触发！\n", MAX_HR_RETRIES);
+            printf("[MAX30102]  %d times failed, giving up.\n", MAX_HR_RETRIES);
             s_hr_retry_count = 0; // 重置计数器，等待下一次用户主动触发
         }
     }

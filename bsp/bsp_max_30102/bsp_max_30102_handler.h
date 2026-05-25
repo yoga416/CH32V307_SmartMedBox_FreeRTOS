@@ -9,7 +9,6 @@
 #include "queue.h"
 #include "bsp_max_30102_driver.h" 
 
-//#define MAX30102_HANDLER_DEBUG  
 
 /* 定义算法所需的采样窗口大小 (通常需要 4~5 秒数据，100Hz = 400~500点) */
 #define MAX30102_BUFFER_LENGTH  400 

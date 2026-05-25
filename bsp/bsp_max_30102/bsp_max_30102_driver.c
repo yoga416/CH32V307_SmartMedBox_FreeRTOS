@@ -47,11 +47,12 @@ static MAX_DRIVER_Status_t max30102_init(bsp_max30102_driver_t *p) {
     // 3. FIFO 配置：SMP_AVE=000(无硬件平均)，开启 FIFO_ROLLOVER 防止溢出后丢数据
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_FIFO_CONFIG, 0x1F); // 0x1F=0b0001_1111 → bit[4]=1 开启滚存
 
-    // 4. 工作模式与参数
+    
+     // 4. 工作模式与参数
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_MODE_CONFIG, 0x03);
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_SPO2_CONFIG, 0x27); // 50Hz
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x5F);// 红光 LED ~19mA (原0x27≈6.4mA太低)
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x5F);// 红外 LED ~19mA
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_SPO2_CONFIG, 0x27); // 100Hz, 4096nA量程, 411us脉宽
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x24);     // 恢复为 ~7mA
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x24);     // 恢复为 ~7mA
 
     // 清除一次初始中断状态
     uint8_t dummy;
