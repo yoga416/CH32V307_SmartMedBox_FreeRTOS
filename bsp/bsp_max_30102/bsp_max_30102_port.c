@@ -12,8 +12,8 @@ bsp_max30102_driver_t g_max30102;
 SemaphoreHandle_t xSem_MAX30102_Exti = NULL;
 // 定义一个静态重试计数器
 static uint8_t s_hr_retry_count = 0; 
-// 定义最大重试次数（共 1 次）
-#define MAX_HR_RETRIES 0
+// 最大重试次数
+#define MAX_HR_RETRIES 3
 
 // 定义滑动滤波窗口大小（建议 3 到 5，数值越大越平滑但响应越慢）
 #define HR_SPO2_FILTER_SIZE 3
@@ -399,9 +399,9 @@ void bsp_max30102_port_init(void) {
 void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_valid) 
 {
     // 阈值常量定义
-    const uint32_t hr_max_threshold = 180;
-    const uint32_t hr_min_threshold = 40;
-    const float spo2_min_threshold = 70.0f; // 提高血氧阈值更符合生理逻辑
+    const uint32_t hr_max_threshold = 180; // 心率上限阈值，过高可能是异常数据
+    const uint32_t hr_min_threshold = 40;  // 心率下限阈值，过低可能是异常数据
+    const float spo2_min_threshold = 80.00f; // 提高血氧阈值更符合生理逻辑
     const float spo2_max_threshold = 100.0f;   
     
     // 1. 总体有效性判断 (将是否为0，以及是否在范围内的判断合并)
@@ -414,10 +414,10 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
         s_hr_retry_count = 0; 
 
         // 屏蔽掉滑动滤波的过程，直接打印算法输出的原始（未经二次平滑）结果
-        APP_LOG("RAW Heart Rate: %ld bpm\r\n", hr);
+        APP_LOG(" Heart Rate: %ld bpm\r\n", hr);
         
         uint32_t spo2_raw_int = (uint32_t)(spo2 * 10.0f + 0.5f); 
-        APP_LOG("RAW SpO2: %lu.%lu%%\r\n", spo2_raw_int / 10, spo2_raw_int % 10);
+        APP_LOG(" SpO2: %lu.%lu%%\r\n", spo2_raw_int / 10, spo2_raw_int % 10);
 
         // 5. 适配新的变长协议进行打包（使用原始的 hr 和 spo2）
         uint32_t hr_X100   = (uint32_t)(hr * 100);
@@ -464,7 +464,6 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
     } 
     else 
     {
-   
         // 手指脱落或无效时清空历史，保证下次测量独立性
         memset(g_hr_history, 0, sizeof(g_hr_history));
         memset(g_spo2_history, 0, sizeof(g_spo2_history));
@@ -474,8 +473,9 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
         if (s_hr_retry_count < MAX_HR_RETRIES) 
         {
             s_hr_retry_count++;
-            APP_LOG("[MAX30102] reinit begining (%d/%d)\n", s_hr_retry_count, MAX_HR_RETRIES);
-            
+            APP_LOG("[MAX30102] renew starting! (%d/%d)\n", s_hr_retry_count, MAX_HR_RETRIES);
+            /*等待2秒*/
+            vTaskDelay(pdMS_TO_TICKS(2000));
             // 往控制中枢发命令，要求再测一次！
             if (xSysCmdQueue != NULL) {
                 SystemCommand_t retry_cmd = CMD_MEASURE_HR_SPO2;

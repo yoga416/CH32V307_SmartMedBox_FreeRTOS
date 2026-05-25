@@ -245,6 +245,15 @@ void sensor_lcd_task(void *pvParameters)
         // ==========================================
         // 第二部分：统一执行 LVGL UI 渲染 (显示数组中最新的数据)
         // ==========================================
+        static lv_obj_t *last_scr = NULL;
+        lv_obj_t *curr_scr = lv_scr_act();
+        
+        // 如果页面发生了切换，强制刷新所有数据，防止进入新页面后数据显示为空
+        if (curr_scr != last_scr) {
+            g_ui_data.update_flags = 0xFFFFFFFF;
+            last_scr = curr_scr;
+        }
+
         if (g_ui_data.update_flags != 0) 
         {
             if(xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdTRUE) 

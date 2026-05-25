@@ -51,8 +51,8 @@ static MAX_DRIVER_Status_t max30102_init(bsp_max30102_driver_t *p) {
      // 4. 工作模式与参数
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_MODE_CONFIG, 0x03);
     p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_SPO2_CONFIG, 0x27); // 100Hz, 4096nA量程, 411us脉宽
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x24);     // 恢复为 ~7mA
-    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x24);     // 恢复为 ~7mA
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED1_PA, 0x32);    // 降低电流 (约 10mA) 避免饱和
+    p->hw->pf_write_reg(ctx, MAX30102_I2C_ADDR, REG_LED2_PA, 0x32);    // 降低电流 (约 10mA) 避免饱和 
 
     // 清除一次初始中断状态
     uint8_t dummy;
