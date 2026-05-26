@@ -35,7 +35,7 @@ void tianwen_task(void *pvParameters)
     uint8_t rx_byte = 0;
     uint8_t parse_state = 0;
     uint8_t current_cmd = 0;
-    uint8_t time=0;
+    uint16_t time=0;
     for(;;)
     {
         // 阻塞等待串口队列中的数据。portMAX_DELAY 表示如果没有数据，任务就挂起不占CPU
@@ -116,7 +116,7 @@ void tianwen_task(void *pvParameters)
         {
             time++;
             //定时发送环境温湿度测量命令，模拟语音触发（实际使用时可以去掉这个定时器，完全依赖语音指令触发）
-            if(time>=200)            
+            if(time>=1000) // 每10秒发送一次测量命令          
             {
                 time=0;
             test_cmd = CMD_MEASURE_ENV_TEMP_HUMI;

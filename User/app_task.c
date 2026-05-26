@@ -43,7 +43,6 @@
 #include "information.h"
 #include "gui_guider.h"
 #include "events_init.h"
-
 /* 触摸屏扫描（FT6336 软件 I2C） */
 #include "touch.h"
 
@@ -303,22 +302,24 @@ void sensor_lcd_task(void *pvParameters)
 
                 // 6. 刷新漏服记录 (静态数据，只有开机或有新记录时刷新一次)
                 if (g_ui_data.update_flags & UI_FLAG_RECORDS) {
-                    if(lv_obj_is_valid(guider_ui.screen_2_label_2))
-                        lv_label_set_text_fmt(guider_ui.screen_2_label_2,"id:%d date:%s time:%s", 
-                            g_ui_data.missed_records[0].id, g_ui_data.missed_records[0].date,
-                             g_ui_data.missed_records[0].time); 
-                    if(lv_obj_is_valid(guider_ui.screen_2_label_4))
-                        lv_label_set_text_fmt(guider_ui.screen_2_label_4,"id:%d date:%s time:%s", 
-                            g_ui_data.missed_records[1].id, g_ui_data.missed_records[1].date,
-                             g_ui_data.missed_records[1].time); 
-                    if(lv_obj_is_valid(guider_ui.screen_2_label_5))
-                        lv_label_set_text_fmt(guider_ui.screen_2_label_5,"id:%d date:%s time:%s", 
-                            g_ui_data.missed_records[2].id, g_ui_data.missed_records[2].date, 
-                            g_ui_data.missed_records[2].time); 
-                    if(lv_obj_is_valid(guider_ui.screen_2_label_3))
-                        lv_label_set_text_fmt(guider_ui.screen_2_label_3,"id:%d date:%s time:%s", 
-                            g_ui_data.missed_records[3].id, g_ui_data.missed_records[3].date, 
-                            g_ui_data.missed_records[3].time); 
+                    lv_obj_t* labels[] = {
+                        guider_ui.screen_2_label_2,
+                        guider_ui.screen_2_label_4,
+                        guider_ui.screen_2_label_5,
+                        guider_ui.screen_2_label_3
+                    };
+                    for(int i = 0; i < 4; i++) {
+                        if(lv_obj_is_valid(labels[i])) {
+                            if(i < g_ui_data.record_count) {
+                                lv_label_set_text_fmt(labels[i], "id:%lu date:%s time:%s", 
+                                    (unsigned long)g_ui_data.missed_records[i].id, 
+                                    g_ui_data.missed_records[i].date,
+                                    g_ui_data.missed_records[i].time);
+                            } else {
+                                lv_label_set_text(labels[i], ""); // 无数据则置为空白
+                            }
+                        }
+                    }
                 }
 
                 // 7. 刷新用药方案
@@ -416,14 +417,18 @@ void bsp_sensor_task(void *pvParameters)
 }
 
 /* -------------------------------------------------------------
- * 3. WIFI 数据上传任务
+ * 3. WIFI 数据上传与指令接收任务
  * ------------------------------------------------------------- */
 void usart_task(void *pvParameters)
 {
     Packet_t packet;
+    Packet_t rx_packet;
+    static TickType_t last_sync_tick = 0;  // 记录上次同步时间
+    static uint8_t is_first_sync = 1;      // 首次同步标志
     (void)pvParameters;
     for (;;)
     {
+        // 1. 发送逻辑：处理 RingBuffer 中的待发送数据
         while (RingBuffer_isEmpty(&g_ring_buffer) == 0x00)
         {
             if (RingBuffer_pop(&g_ring_buffer, &packet) == 0xAF)
@@ -432,14 +437,80 @@ void usart_task(void *pvParameters)
                     printf("[usart_task] Failed to send packet to ESP8266\n");
                 }
             }
-            /* ⚠️ 关键：内层循环必须延时让低优先级任务（app_task）有机会喂狗 */
             vTaskDelay(pdMS_TO_TICKS(5));
-            /* 同时主动喂狗，防止 app_task 被长时间阻塞 */
             if (watchdogTask_Handler != NULL) {
                 xTaskNotifyGive(watchdogTask_Handler);
             }
         }
-         /* 喂狗：通知 watchdog_task */
+
+        // 2. 接收逻辑：从 WiFi 接收指令包 (包含时间同步指令)
+        if (USART_WIFI_ESP_Receive(&rx_packet) == USART_WIFI_ESP_OK)
+        {
+            /*时间同步*/
+            if (rx_packet.sensor_id == CMD_RTC_SYNC && rx_packet.data_len >= 6)
+            {
+                uint8_t year   = rx_packet.payload[0];
+                uint8_t month  = rx_packet.payload[1];
+                uint8_t day    = rx_packet.payload[2];
+                uint8_t hour   = rx_packet.payload[3];
+                uint8_t minute = rx_packet.payload[4];
+                uint8_t second = rx_packet.payload[5];
+
+                TickType_t current_tick = xTaskGetTickCount();
+                
+                // 每200秒校准一次误差 (首次或者间隔超过200,000ms)
+                if (is_first_sync || (current_tick - last_sync_tick) >= pdMS_TO_TICKS(20000))
+                {
+                    // printf("\r\n[Time Sync] Calibrating RTC (Interval 200s): 20%02d-%02d-%02d %02d:%02d:%02d\n", 
+                    //         year, month, day, hour, minute, second);
+                    
+                    // 修改 RTC 时间
+                    BSP_RTC_ModifyTime(2000 + year, month, day, hour, minute, second);
+                    
+                    last_sync_tick = current_tick;
+                    is_first_sync = 0;
+
+                    // 立即更新 LCD 显示的时间
+                    BSP_RTC_GetDateTime(&g_ui_data.time);
+                    g_ui_data.update_flags |= UI_FLAG_TIME;
+                    
+                    printf("[Time Sync] RTC & LCD display calibrated successfully!\n");
+                }
+            }
+
+            /*位置同步*/
+            if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 8)
+            {
+                char city_name[16]={0};
+                memcpy(city_name, rx_packet.payload, rx_packet.data_len);
+                APP_LOG("\r\n[Location Sync] Received new location: %s\n", city_name);
+                /*保存在w25qxx中*/
+                //W25Q_WriteData(LOCATION_STORAGE_ADDR, (uint8_t*)city_name, 16);
+            }
+
+            /*天气同步*/
+            if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
+            {
+                int8_t weather_code= (int8_t)rx_packet.payload[0]; // 天气代码
+                // 心知天气官方代码参考
+                    switch(weather_code) {
+                            case 0: APP_LOG("weather: clear"); break;
+                            case 4: APP_LOG("weather: cloudy"); break; // 4 对应多云
+                            case 6: APP_LOG("weather: overcast"); break;
+                            case 9: APP_LOG("weather: partly cloudy"); break;
+                            case 10: APP_LOG("weather: shower"); break;
+                            // ... 更多代码
+                            default:  break;
+                            }
+                int8_t temperature = (int8_t)rx_packet.payload[1]; // 温度
+                APP_LOG("\r\n[Weather Sync] Received weather update: Temp=%d°C\n", temperature);
+                /*可以根据天气代码更新 LCD 上的天气图标，温度可以显示在天气图标旁边*/
+                /*保存在w25qxx中*/
+                //W25Q_WriteData(LOCATION_STORAGE_ADDR, (uint8_t*)city_name, 16);
+            }
+
+        }
+
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }

@@ -84,6 +84,16 @@ static usart_wifi_esp_Status_t USART_WIFI_ESP_Init(void)
     USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
     USART_Init(USART2, &USART_InitStructure);
 
+    // --- 新增：配置 USART2 中断优先级并开启接收中断 ---
+    NVIC_InitTypeDef NVIC_InitStructure = {0};
+    NVIC_InitStructure.NVIC_IRQChannel = USART2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 6; // 比天问任务低一点，或者根据系统需求调整
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);
+
     USART_Cmd(USART2, ENABLE);
     return USART_WIFI_ESP_OK;
 }// 天问串口初始化 (USART3完全重映射: TX=PD8, RX=PD9)
@@ -224,6 +234,12 @@ uint8_t g_peripheral_init(void)
         if(xEventGroup == NULL) {
             printf("[Error] Event Group Create Failed\n");
         }
+
+    // WiFi 接收队列创建
+    xUART_Queue = xQueueCreate(128, sizeof(uint8_t));
+    if (xUART_Queue == NULL) {
+        printf("[Error] Failed to create xUART_Queue!\n");
+    }
 
     // 系统命令队列创建
     CmdQueue = xQueueCreate(10, sizeof(SystemCommand_t));

@@ -22,10 +22,10 @@ typedef enum{
 } 
 usart_wifi_esp_Status_t;
 // USART通信状态枚举
-#if 1
+
 //define usart data structure           
 usart_wifi_esp_Status_t UART2_DMA_Start_Send(uint8_t *pbuf, uint16_t len);
 usart_wifi_esp_Status_t USART_WIFI_ESP_Send(const Packet_t *packet);
 usart_wifi_esp_Status_t USART_WIFI_ESP_Receive(Packet_t *packet);
-#endif
+
 #endif // !1 _USART_&WIFI_ESP.

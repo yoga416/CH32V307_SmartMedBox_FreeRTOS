@@ -8,9 +8,11 @@
 #include <string.h>
 
 extern SemaphoreHandle_t xDMA_Sem;
+extern QueueHandle_t xUART_Queue;
 
 // 显式声明中断服务函数
 void DMA1_Channel7_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
+void USART2_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
 
 // 内部 DMA 触发函数
 usart_wifi_esp_Status_t UART2_DMA_Start_Send(uint8_t *pbuf, uint16_t len)
@@ -57,6 +59,100 @@ usart_wifi_esp_Status_t USART_WIFI_ESP_Send(const Packet_t *packet)
     } else {
         DMA_Cmd(DMA1_Channel7, DISABLE);
         return USART_WIFI_ESP_ERROR;
+    }
+}
+
+/**
+ * @brief 接收不定长数据帧 (阻塞式，带超时)
+ * 格式：0x5A(头) + Length(1B) + ID(1B) + Data(NB) + CRC(1B) + 0xFF(尾)
+ */
+usart_wifi_esp_Status_t USART_WIFI_ESP_Receive(Packet_t *packet)
+{
+    if (packet == NULL || xUART_Queue == NULL) return USART_WIFI_ESP_ERROR;
+
+    uint8_t rx_byte;
+    uint8_t state = 0;
+    uint8_t payload_idx = 0;
+    uint8_t crc_calc_buf[MAX_PAYLOAD_LEN + 2]; // 用于校验的缓冲区 (len + id + payload)
+    uint8_t crc_calc_idx = 0;
+
+    // 整个数据包接收的最长等待时间 (USART_WIFI_ESP_TIMEOUT_MS)
+    TickType_t xStartTime = xTaskGetTickCount();
+
+    while ((xTaskGetTickCount() - xStartTime) < pdMS_TO_TICKS(USART_WIFI_ESP_TIMEOUT_MS))
+    {
+        if (xQueueReceive(xUART_Queue, &rx_byte, pdMS_TO_TICKS(10)) == pdPASS)
+        {
+            switch (state)
+            {
+                case 0: // 找帧头
+                    if (rx_byte == PACKET_HEAD_VAL) state = 1;
+                    break;
+
+                case 1: // 获取长度
+                    packet->data_len = rx_byte;
+                    crc_calc_buf[crc_calc_idx++] = rx_byte; // CRC 包含长度字节
+                    if (packet->data_len > MAX_PAYLOAD_LEN) {
+                        state = 0; crc_calc_idx = 0; // 长度非法，复位
+                    } else {
+                        state = 2;
+                    }
+                    break;
+
+                case 2: // 获取 ID
+                    packet->sensor_id = rx_byte;
+                    crc_calc_buf[crc_calc_idx++] = rx_byte; // CRC 包含 ID 字节
+                    if (packet->data_len == 0) state = 4; // 无负载直接跳过数据接收
+                    else {
+                        payload_idx = 0;
+                        state = 3;
+                    }
+                    break;
+
+                case 3: // 接收负载数据
+                    packet->payload[payload_idx++] = rx_byte;
+                    crc_calc_buf[crc_calc_idx++] = rx_byte; // CRC 包含负载字节
+                    if (payload_idx >= packet->data_len) state = 4;
+                    break;
+
+                case 4: // 校验 CRC
+                {
+                    uint8_t received_crc = rx_byte;
+                    uint8_t expected_crc = bsp_utils_calc_crc8(crc_calc_buf, crc_calc_idx);
+                    if (received_crc == expected_crc) {
+                        state = 5;
+                    } else {
+                        state = 0; crc_calc_idx = 0; // 校验失败
+                        return USART_WIFI_ESP_ERROR;
+                    }
+                    break;
+                }
+
+                case 5: // 帧尾
+                    if (rx_byte == PACKET_TAIL_VAL) {
+                        return USART_WIFI_ESP_OK; // 接收成功
+                    }
+                    state = 0; crc_calc_idx = 0;
+                    break;
+            }
+        }
+    }
+
+    return USART_WIFI_ESP_ERROR; // 超时
+}
+
+// USART2 中断服务函数
+void USART2_IRQHandler(void)
+{
+    if (USART_GetITStatus(USART2, USART_IT_RXNE) != RESET)
+    {
+        uint8_t data = USART_ReceiveData(USART2);
+        if (xUART_Queue != NULL)
+        {
+            BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+            xQueueSendFromISR(xUART_Queue, &data, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
     }
 }
 

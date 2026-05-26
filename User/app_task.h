@@ -77,6 +77,16 @@ typedef struct {
 } AppMsg_t;
 
 
+
+/*esp32数据帧id号*/
+#define SENSOR_SHT40    0x00
+#define SENSOR_MLX90614 0x03
+#define SENSOR_MAX30102 0x04
+#define CMD_RTC_SYNC    0x10
+#define CMD_WEATHER_SYNC 0x11
+#define CMD_LOCATION_SYNC 0x12
+
+
 // 声明全局队列句柄
 extern QueueHandle_t xAppEventQueue;
 /* 全局函数声明 */
