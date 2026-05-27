@@ -9,6 +9,7 @@
 
 #include "events_init.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "lvgl.h"
 #include "information.h"
 
@@ -16,11 +17,12 @@
 #include "freemaster_client.h"
 #endif
 
+/*药品在最开始的时候没有数据*/
 AlarmSche my_meds[3] = {
-      {10, 01, 1},  
-      {10, 02, 1}, 
-      {10, 03, 1}   
-};
+    {13, 14, 1},
+    {13, 20, 1},
+    {13, 25, 1}
+}; // 默认吃药时间表：13:14、13:20、13:25，每次1颗
 /* * 统一的全局指针清理函数
  * 每次离开当前屏幕前调用此函数，彻底切断所有旧控件与后台任务的联系，防止野指针导致的 HardFault 
  */
@@ -267,25 +269,22 @@ static void screen_4_btn_1_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        /* =================== 保存设置 =================== */
+        /* =================== 仅保存用药颗数 =================== */
         char buf[4];
 
-        // 时段1: ddlist_4
+        // 药品1的颗数设置: ddlist_4
         lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_4, buf, sizeof(buf));
-        g_ui_data.meds_schedule[0].hour = (uint8_t)atoi(buf);
-        g_ui_data.meds_schedule[0].min  = 0;
+        g_ui_data.meds_schedule[0].pill_count = (uint8_t)atoi(buf);
 
-        // 时段2: ddlist_2
+        // 药品2的颗数设置: ddlist_2
         lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_2, buf, sizeof(buf));
-        g_ui_data.meds_schedule[1].hour = (uint8_t)atoi(buf);
-        g_ui_data.meds_schedule[1].min  = 0;
+        g_ui_data.meds_schedule[1].pill_count = (uint8_t)atoi(buf);
 
-        // 时段3: ddlist_3
+        // 药品3的颗数设置: ddlist_3
         lv_dropdown_get_selected_str(guider_ui.screen_4_ddlist_3, buf, sizeof(buf));
-        g_ui_data.meds_schedule[2].hour = (uint8_t)atoi(buf);
-        g_ui_data.meds_schedule[2].min  = 0;
+        g_ui_data.meds_schedule[2].pill_count = (uint8_t)atoi(buf);
 
-        // 同步到全局 my_meds 并保存 Flash
+        // 同步到全局 my_meds 并保存 Flash (注：hour 和 min 字段在此过程中保持不变)
         memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
         SystemData_Save_To_Flash();
 

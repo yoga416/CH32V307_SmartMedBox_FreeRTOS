@@ -85,6 +85,7 @@ typedef struct {
 #define CMD_RTC_SYNC    0x10
 #define CMD_WEATHER_SYNC 0x11
 #define CMD_LOCATION_SYNC 0x12
+#define CMD_WIFI_STATUS_UPDATE 0x13
 
 
 // 声明全局队列句柄

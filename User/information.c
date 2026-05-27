@@ -2,10 +2,12 @@
 #include "spi_w25q.h"
 #include <string.h>
 #include <stdio.h>
-
+#include "information.h"
 #define DATA_SECTOR_ADDR  0x7F8000
 #define SECTOR_SIZE       4096
 
+// 移除了原来的 DEFAULT_ALARM 固定数组，统一使用 my_meds 管理
+extern AlarmSche my_meds[3];
 extern UI_DisplayData_t g_ui_data;
 static uint32_t current_flash_offset = 0;
 
@@ -23,6 +25,13 @@ void SystemData_Init_Load(void)
         
         if (temp_data.magic_num == 0x55AA) {
             memcpy(&g_ui_data, &temp_data, sizeof(UI_DisplayData_t));
+            
+            // WiFi 状态是动态的，不从 Flash 恢复，开机默认显示断开 'F'
+            g_ui_data.wifi_status = 'F'; 
+            
+            // 从 Flash 恢复数据后，同步更新到全局唯一闹钟变量 my_meds
+            memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+            
             current_flash_offset = offset;
             found = true;
         }
@@ -31,16 +40,33 @@ void SystemData_Init_Load(void)
     if (!found) {
         memset(&g_ui_data, 0, sizeof(UI_DisplayData_t));
         g_ui_data.magic_num = 0x55AA;
-        g_ui_data.wifi_status = 'T';
+        g_ui_data.wifi_status = 'F'; // 默认无 WiFi
         
-        g_ui_data.meds_schedule[0].hour = 10; g_ui_data.meds_schedule[0].min = 1;
-        g_ui_data.meds_schedule[1].hour = 10; g_ui_data.meds_schedule[1].min = 2;
-        g_ui_data.meds_schedule[2].hour = 10; g_ui_data.meds_schedule[2].min = 3;
+        // 【固化】设定初始吃药时间表：8:00, 12:00, 18:00
+        g_ui_data.meds_schedule[0].hour = 8;
+        g_ui_data.meds_schedule[0].min  = 0;
+        g_ui_data.meds_schedule[0].pill_count = 1;
+
+        g_ui_data.meds_schedule[1].hour = 12;
+        g_ui_data.meds_schedule[1].min  = 0;
+        g_ui_data.meds_schedule[1].pill_count = 1;
+
+        g_ui_data.meds_schedule[2].hour = 18;
+        g_ui_data.meds_schedule[2].min  = 0;
+        g_ui_data.meds_schedule[2].pill_count = 1;
 
         W25Q_SectorErase(DATA_SECTOR_ADDR);
         W25Q_WriteBuffer(DATA_SECTOR_ADDR, (uint8_t *)&g_ui_data, sizeof(UI_DisplayData_t));
         current_flash_offset = 0;
     }
+    
+    // 【强制校准】确保加载后的时间始终是 8:00, 12:00, 18:00，防止之前误操作污染了 Flash
+    g_ui_data.meds_schedule[0].hour = 8;  g_ui_data.meds_schedule[0].min = 0;
+    g_ui_data.meds_schedule[1].hour = 12; g_ui_data.meds_schedule[1].min = 0;
+    g_ui_data.meds_schedule[2].hour = 18; g_ui_data.meds_schedule[2].min = 0;
+
+    // 同步到实时变量
+    memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
 
     // 开机强制刷新整个 UI
     g_ui_data.update_flags = 0xFFFFFFFF; 

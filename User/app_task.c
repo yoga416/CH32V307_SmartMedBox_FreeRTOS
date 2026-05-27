@@ -93,7 +93,7 @@ void app_task(void *pvParameters)
     xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
 
     //设置时间：
-    BSP_RTC_ModifyTime(2026, 5, 20, 10, 00, 00); // 设置初始时间为2026年3月2日00:00:00
+    BSP_RTC_ModifyTime(2026, 5, 20, 13, 14, 00); // 设置初始时间为2026年3月2日00:00:00
     //设置闹钟(已经设置就生效，所以放在主循环前面)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
@@ -182,12 +182,6 @@ void sensor_lcd_task(void *pvParameters)
     uint32_t current_tick = 0;
      (void)pvParameters;
 
-    g_ui_data.missed_records[0] = (MissedDoseRecord){1, "2026/05/20", "08:00"};
-    g_ui_data.missed_records[1] = (MissedDoseRecord){2, "2026/05/21", "12:30"};
-    g_ui_data.missed_records[2] = (MissedDoseRecord){3, "2026/05/22", "19:00"};
-    g_ui_data.missed_records[3] = (MissedDoseRecord){4, "2026/05/23", "22:00"};
-    g_ui_data.record_count = 4;
-
     // 开机初始化：从 Flash 恢复之前保存的历史记录和配置数据
     SystemData_Init_Load();
 
@@ -257,6 +251,10 @@ void sensor_lcd_task(void *pvParameters)
         {
             if(xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
             {
+                // 强制同步：确保 my_meds 始终与 g_ui_data (Flash数据) 一致
+                extern AlarmSche my_meds[3];
+                memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+
                 // 1. 刷新心率血氧 (读取数组最后一个元素)
                 if ((g_ui_data.update_flags & UI_FLAG_HR_SPO2) && g_ui_data.hr_count > 0) {
                     uint16_t latest_hr = g_ui_data.hr_history[g_ui_data.hr_count - 1].hr;
@@ -284,6 +282,12 @@ void sensor_lcd_task(void *pvParameters)
                         lv_label_set_text_fmt(guider_ui.screen_label_8, "%d.%02d %%", latest_eh/100, latest_eh%100);
                 }
 
+                 /*显示wifi状态*/
+                if (lv_obj_is_valid(guider_ui.screen_label_2))
+                {
+                    lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data.wifi_status);
+                }
+
                 // 4. 刷新时间
                 if (g_ui_data.update_flags & UI_FLAG_TIME) {
                     if (lv_obj_is_valid(guider_ui.screen_label_4))
@@ -293,11 +297,6 @@ void sensor_lcd_task(void *pvParameters)
                         lv_label_set_text_fmt(guider_ui.screen_label_3, "%04d/%02d/%02d",
                              g_ui_data.time.year, g_ui_data.time.month, g_ui_data.time.day);
                 }
-
-                
-                    if (lv_obj_is_valid(guider_ui.screen_label_2))
-                        lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data.wifi_status);
-                
 
 
                 // 6. 刷新漏服记录 (静态数据，只有开机或有新记录时刷新一次)
@@ -321,26 +320,41 @@ void sensor_lcd_task(void *pvParameters)
                         }
                     }
                 }
-
-                // 7. 刷新用药方案
-                if (g_ui_data.update_flags & UI_FLAG_SCHEDULE) {
+                
+                if(g_ui_data.update_flags & UI_FLAG_SCHEDULE) {
+                    /* 1. 刷新固定的时间文本 (13:14, 13:20, 13:25) */
                     if(lv_obj_is_valid(guider_ui.screen_4_label_2))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_2, "Time: %02d:%02d", 
                             g_ui_data.meds_schedule[0].hour, g_ui_data.meds_schedule[0].min);
+                    
                     if(lv_obj_is_valid(guider_ui.screen_4_label_20))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_20, "Time: %02d:%02d", 
                             g_ui_data.meds_schedule[1].hour, g_ui_data.meds_schedule[1].min);
+                    
                     if(lv_obj_is_valid(guider_ui.screen_4_label_23))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_23, "Time: %02d:%02d", 
                             g_ui_data.meds_schedule[2].hour, g_ui_data.meds_schedule[2].min);
-                }
 
+
+                    /* 3. 同步下拉框选中状态 */
+                    if(lv_obj_is_valid(guider_ui.screen_4_ddlist_4)) {
+                        uint16_t sel = (g_ui_data.meds_schedule[0].pill_count > 0) ? (g_ui_data.meds_schedule[0].pill_count - 1) : 0;
+                        lv_dropdown_set_selected(guider_ui.screen_4_ddlist_4, sel);
+                    }
+                    if(lv_obj_is_valid(guider_ui.screen_4_ddlist_2)) {
+                        uint16_t sel = (g_ui_data.meds_schedule[1].pill_count > 0) ? (g_ui_data.meds_schedule[1].pill_count - 1) : 0;
+                        lv_dropdown_set_selected(guider_ui.screen_4_ddlist_2, sel);
+                    }
+                    if(lv_obj_is_valid(guider_ui.screen_4_ddlist_3)) {
+                        uint16_t sel = (g_ui_data.meds_schedule[2].pill_count > 0) ? (g_ui_data.meds_schedule[2].pill_count - 1) : 0;
+                        lv_dropdown_set_selected(guider_ui.screen_4_ddlist_3, sel);
+                    }
+                }
                  // 刷新完成后，清除更新标志
                 g_ui_data.update_flags = 0; 
                 xSemaphoreGive(xGuiMutex);
             }
         }
-
         vTaskDelay(pdMS_TO_TICKS(50));
     }   
 }
@@ -425,9 +439,12 @@ void usart_task(void *pvParameters)
     Packet_t rx_packet;
     static TickType_t last_sync_tick = 0;  // 记录上次同步时间
     static uint8_t is_first_sync = 1;      // 首次同步标志
+    static TickType_t last_wifi_tick = 0;  // 记录上次收到WiFi状态的时间
     (void)pvParameters;
     for (;;)
     {
+    
+
         // 1. 发送逻辑：处理 RingBuffer 中的待发送数据
         while (RingBuffer_isEmpty(&g_ring_buffer) == 0x00)
         {
@@ -446,6 +463,7 @@ void usart_task(void *pvParameters)
         // 2. 接收逻辑：从 WiFi 接收指令包 (包含时间同步指令)
         if (USART_WIFI_ESP_Receive(&rx_packet) == USART_WIFI_ESP_OK)
         {
+
             /*时间同步*/
             if (rx_packet.sensor_id == CMD_RTC_SYNC && rx_packet.data_len >= 6)
             {
@@ -509,11 +527,39 @@ void usart_task(void *pvParameters)
                 //W25Q_WriteData(LOCATION_STORAGE_ADDR, (uint8_t*)city_name, 16);
             }
 
+            /*wifi状态更新*/
+            if (rx_packet.sensor_id == CMD_WIFI_STATUS_UPDATE)
+            {
+                
+                APP_LOG("[WiFi] Status update received: 0x%02X\n", rx_packet.payload[0]);
+                if(rx_packet.payload[0] == 0x32) {
+                    // 接收到心跳包，说明模块在线，更新 WiFi 状态和最后收到状态的时间戳
+                    last_wifi_tick = xTaskGetTickCount();
+                    g_ui_data.wifi_status = 'T'; // 'T' 表示 WiFi 已连接
+                } else {
+                    g_ui_data.wifi_status = 'F'; // 'F' 表示 WiFi 断开
+                }
+                g_ui_data.update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
+            }
+        }
+       // ==========================================
+        // 3. 独立的心跳超时检测逻辑 (放在接收 if 块的外面)
+        // ==========================================
+        /* 串口 20s 内没有接收到任何数据时，把 wifi_status 设置为 'F' */
+        if(g_ui_data.wifi_status == 'T') 
+        {
+            if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(20200)) 
+            {
+                APP_LOG("[WiFi] No status update received for 20s, setting status to 'F'\n");
+                g_ui_data.wifi_status = 'F';
+                g_ui_data.update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
-}
+    }
+
 
 
 void vApplicationMallocFailedHook(void)
@@ -574,3 +620,8 @@ void check_medication_time(void) {
     }
 }
 
+/*检查是否漏服的函数，封装成一个独立函数，方便在多个地方调用（定时检查和用户按键检查）*/
+void check_missed_dose(void) {
+
+
+}

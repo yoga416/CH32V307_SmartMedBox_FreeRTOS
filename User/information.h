@@ -20,6 +20,9 @@
 #define UI_FLAG_RECORDS       (1 << 5)
 #define UI_FLAG_SCHEDULE      (1 << 6)
 
+
+
+
 // ==========================================
 // 数据类型定义
 // ==========================================
@@ -33,7 +36,7 @@ typedef struct {
 typedef struct {
     uint8_t hour;
     uint8_t min;
-    uint8_t pill_count;  // 每次吃几颗药
+    uint8_t pill_count;  // 这个有界面的选项，但目前界面上没有实现修改功能，暂时写死为1
 } AlarmSche;
 
 // 【新增】心率血氧历史记录 (16 字节)
@@ -86,7 +89,8 @@ typedef struct {
     
     // 6. 实时状态（不存 Flash 的运行状态）
     RTC_TimeTypeDef time;
-    uint32_t update_flags;                   
+    uint32_t update_flags; 
+                      
 } UI_DisplayData_t;
 
 extern UI_DisplayData_t g_ui_data;
@@ -114,5 +118,7 @@ void Add_History_BodyTemp(uint16_t temp);
 
 /*追加环境温湿度记录*/
 void Add_History_EnvTH(uint16_t temp, uint16_t humi);
+
+
 
 #endif // __INFORMATION_H

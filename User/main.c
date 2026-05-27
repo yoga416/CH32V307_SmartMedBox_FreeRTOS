@@ -37,6 +37,8 @@ extern void tianwen_task(void *pvParameters);
 extern void lcd_task(void *pvParameters); // 如果有 LCD 任务的话
 extern void sensor_lcd_task(void *pvParameters); // 传感器数据 LCD 显示任务
 
+#include "information.h"
+
 /*********************************************************************
  * @fn      main
  *
@@ -50,6 +52,9 @@ int main(void)
     SystemCoreClockUpdate();
     Delay_Init();
     USART_Printf_Init(115200);
+
+
+     /* 创建互斥锁和队列 */
     // cm_backtrace_init("CmBackTrace", HARDWARE_VERSION, SOFTWARE_VERSION);
     printf("\r\n==================start======================\r\n");
     uint8_t ret = 0;
@@ -58,7 +63,6 @@ int main(void)
         while (1) {} // 初始化失败，停在这里
     } 
     
-
     // 创建任务并启动调度器
     if (xTaskCreate((TaskFunction_t )app_task,
                         (const char*    )"app_task",
