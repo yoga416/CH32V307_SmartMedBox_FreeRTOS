@@ -42,17 +42,17 @@ void SystemData_Init_Load(void)
         g_ui_data.magic_num = 0x55AA;
         g_ui_data.wifi_status = 'F'; // 默认无 WiFi
         
-        // 【固化】设定初始吃药时间表：8:00, 12:00, 18:00
-        g_ui_data.meds_schedule[0].hour = 8;
-        g_ui_data.meds_schedule[0].min  = 0;
+        
+        g_ui_data.meds_schedule[0].hour =my_meds[0].hour;
+        g_ui_data.meds_schedule[0].min  = my_meds[0].min;
         g_ui_data.meds_schedule[0].pill_count = 1;
 
-        g_ui_data.meds_schedule[1].hour = 12;
-        g_ui_data.meds_schedule[1].min  = 0;
+        g_ui_data.meds_schedule[1].hour = my_meds[1].hour;
+        g_ui_data.meds_schedule[1].min  = my_meds[1].min;
         g_ui_data.meds_schedule[1].pill_count = 1;
 
-        g_ui_data.meds_schedule[2].hour = 18;
-        g_ui_data.meds_schedule[2].min  = 0;
+        g_ui_data.meds_schedule[2].hour = my_meds[2].hour;
+        g_ui_data.meds_schedule[2].min  = my_meds[2].min;
         g_ui_data.meds_schedule[2].pill_count = 1;
 
         W25Q_SectorErase(DATA_SECTOR_ADDR);
@@ -60,10 +60,10 @@ void SystemData_Init_Load(void)
         current_flash_offset = 0;
     }
     
-    // 【强制校准】确保加载后的时间始终是 8:00, 12:00, 18:00，防止之前误操作污染了 Flash
-    g_ui_data.meds_schedule[0].hour = 8;  g_ui_data.meds_schedule[0].min = 0;
-    g_ui_data.meds_schedule[1].hour = 12; g_ui_data.meds_schedule[1].min = 0;
-    g_ui_data.meds_schedule[2].hour = 18; g_ui_data.meds_schedule[2].min = 0;
+    // 
+    g_ui_data.meds_schedule[0].hour = my_meds[0].hour;  g_ui_data.meds_schedule[0].min = my_meds[0].min;
+    g_ui_data.meds_schedule[1].hour = my_meds[1].hour; g_ui_data.meds_schedule[1].min = my_meds[1].min;
+    g_ui_data.meds_schedule[2].hour = my_meds[2].hour; g_ui_data.meds_schedule[2].min = my_meds[2].min;
 
     // 同步到实时变量
     memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));

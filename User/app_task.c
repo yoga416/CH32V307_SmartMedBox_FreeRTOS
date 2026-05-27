@@ -322,7 +322,6 @@ void sensor_lcd_task(void *pvParameters)
                 }
                 
                 if(g_ui_data.update_flags & UI_FLAG_SCHEDULE) {
-                    /* 1. 刷新固定的时间文本 (13:14, 13:20, 13:25) */
                     if(lv_obj_is_valid(guider_ui.screen_4_label_2))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_2, "Time: %02d:%02d", 
                             g_ui_data.meds_schedule[0].hour, g_ui_data.meds_schedule[0].min);
