@@ -94,7 +94,6 @@ typedef struct {
 } UI_DisplayData_t;
 
 extern UI_DisplayData_t g_ui_data;
-
 // ==========================================
 // 接口函数声明
 // =========================================

@@ -302,10 +302,10 @@ void sensor_lcd_task(void *pvParameters)
                 // 6. 刷新漏服记录 (静态数据，只有开机或有新记录时刷新一次)
                 if (g_ui_data.update_flags & UI_FLAG_RECORDS) {
                     lv_obj_t* labels[] = {
-                        guider_ui.screen_2_label_2,
-                        guider_ui.screen_2_label_4,
-                        guider_ui.screen_2_label_5,
-                        guider_ui.screen_2_label_3
+                        guider_ui.screen_2_label_2,//第一行
+                        guider_ui.screen_2_label_4,//第二行
+                        guider_ui.screen_2_label_5,//第三行
+                        guider_ui.screen_2_label_3//第四行
                     };
                     for(int i = 0; i < 4; i++) {
                         if(lv_obj_is_valid(labels[i])) {
@@ -314,7 +314,8 @@ void sensor_lcd_task(void *pvParameters)
                                     (unsigned long)g_ui_data.missed_records[i].id, 
                                     g_ui_data.missed_records[i].date,
                                     g_ui_data.missed_records[i].time);
-                            } else {
+                            } 
+                            else {
                                 lv_label_set_text(labels[i], ""); // 无数据则置为空白
                             }
                         }

@@ -7,10 +7,14 @@
 #define SECTOR_SIZE       4096
 
 // 移除了原来的 DEFAULT_ALARM 固定数组，统一使用 my_meds 管理
-extern AlarmSche my_meds[3];
 extern UI_DisplayData_t g_ui_data;
 static uint32_t current_flash_offset = 0;
 
+AlarmSche my_meds[3] = {
+    {13, 20, 1},
+    {13, 20, 1},
+    {13, 20, 1}
+};
 void SystemData_Init_Load(void) 
 {
     UI_DisplayData_t temp_data;
@@ -21,27 +25,39 @@ void SystemData_Init_Load(void)
     {
         W25Q_ReadData(DATA_SECTOR_ADDR + offset, (uint8_t *)&temp_data, sizeof(UI_DisplayData_t));
         
+        /*检测w25q是否写入过数据*/
         if (temp_data.magic_num == 0xFFFF) break;
         
         if (temp_data.magic_num == 0x55AA) {
             memcpy(&g_ui_data, &temp_data, sizeof(UI_DisplayData_t));
             
-            // WiFi 状态是动态的，不从 Flash 恢复，开机默认显示断开 'F'
-            g_ui_data.wifi_status = 'F'; 
+        // WiFi 状态是动态的，不从 Flash 恢复，开机默认显示断开 'F'
+        g_ui_data.wifi_status = 'F'; 
             
-            // 从 Flash 恢复数据后，同步更新到全局唯一闹钟变量 my_meds
-            memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
-            
+        // 3. 【关键修复】既然时间由代码管理，强制用 my_meds 覆盖 Flash 里的老时间！
+        for (int i = 0; i < MAX_SCHE; i++) { // 假设 MAX_SCHE 是 3
+        g_ui_data.meds_schedule[i].hour = my_meds[i].hour;
+        g_ui_data.meds_schedule[i].min  = my_meds[i].min;
+        // pill_count 已经在 memcpy 时恢复了老数据，所以这里不需要再额外赋值
+        }
+
+        // /*接入云端后的代码*/
+        // for (int i = 0; i < MAX_SCHE; i++) { // 假设 MAX_SCHE 是 3
+        // my_meds[i].hour= temp_data.meds_schedule[i].hour;
+        // my_meds[i].min= temp_data.meds_schedule[i].min;
+        // my_meds[i].pill_count = temp_data.meds_schedule[i].pill_count;
+        // // pill_count 已经在 memcpy 时恢复了老数据，所以这里不需要再额外赋值
+        // }
             current_flash_offset = offset;
             found = true;
         }
     }
 
+    /*原始数据*/
     if (!found) {
         memset(&g_ui_data, 0, sizeof(UI_DisplayData_t));
         g_ui_data.magic_num = 0x55AA;
         g_ui_data.wifi_status = 'F'; // 默认无 WiFi
-        
         
         g_ui_data.meds_schedule[0].hour =my_meds[0].hour;
         g_ui_data.meds_schedule[0].min  = my_meds[0].min;
@@ -60,13 +76,16 @@ void SystemData_Init_Load(void)
         current_flash_offset = 0;
     }
     
-    // 
-    g_ui_data.meds_schedule[0].hour = my_meds[0].hour;  g_ui_data.meds_schedule[0].min = my_meds[0].min;
-    g_ui_data.meds_schedule[1].hour = my_meds[1].hour; g_ui_data.meds_schedule[1].min = my_meds[1].min;
-    g_ui_data.meds_schedule[2].hour = my_meds[2].hour; g_ui_data.meds_schedule[2].min = my_meds[2].min;
+    // 开机强制刷新整个 UI
+    g_ui_data.meds_schedule[0].hour = my_meds[0].hour;
+    g_ui_data.meds_schedule[0].min = my_meds[0].min;
+    g_ui_data.meds_schedule[1].hour = my_meds[1].hour;
+    g_ui_data.meds_schedule[1].min = my_meds[1].min;
+    g_ui_data.meds_schedule[2].hour = my_meds[2].hour; 
+    g_ui_data.meds_schedule[2].min = my_meds[2].min;
 
     // 同步到实时变量
-    memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+    //memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
 
     // 开机强制刷新整个 UI
     g_ui_data.update_flags = 0xFFFFFFFF; 
