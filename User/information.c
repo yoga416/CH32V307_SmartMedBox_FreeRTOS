@@ -11,9 +11,9 @@ extern UI_DisplayData_t g_ui_data;
 static uint32_t current_flash_offset = 0;
 
 AlarmSche my_meds[3] = {
-    {13, 20, 1},
-    {13, 20, 1},
-    {13, 20, 1}
+    {0, 0, 1},
+    {0, 1, 1},
+    {0, 2, 1}
 };
 void SystemData_Init_Load(void) 
 {
@@ -54,6 +54,9 @@ void SystemData_Init_Load(void)
     }
 
     /*原始数据*/
+    /* 兼容旧数据：漏服记录最多只看 4 条 */
+    if (g_ui_data.record_count > 4) g_ui_data.record_count = 4;
+
     if (!found) {
         memset(&g_ui_data, 0, sizeof(UI_DisplayData_t));
         g_ui_data.magic_num = 0x55AA;
@@ -108,16 +111,27 @@ void SystemData_Save_To_Flash(void)
 // ============== 下面是所有数据的追加函数 (都会触发 Flash 保存) ==============
 
 void Add_Missed_Record(uint32_t new_id, const char *new_date, const char *new_time) {
+    /* 最多保存 4 条漏服记录，下标 0 总是最新 */
+    #define MAX_MISSED_STORE 4
+
     MissedDoseRecord new_rec = {0};
     new_rec.id = new_id;
     strncpy(new_rec.date, new_date, sizeof(new_rec.date) - 1);
     strncpy(new_rec.time, new_time, sizeof(new_rec.time) - 1);
 
-    if (g_ui_data.record_count < MAX_HISTORY) {
-        g_ui_data.missed_records[g_ui_data.record_count++] = new_rec;
+    if (g_ui_data.record_count < MAX_MISSED_STORE) {
+        /* 不满 4 条：整体后移，新记录插在最前面 */
+        for (int i = g_ui_data.record_count; i > 0; i--) {
+            g_ui_data.missed_records[i] = g_ui_data.missed_records[i - 1];
+        }
+        g_ui_data.missed_records[0] = new_rec;
+        g_ui_data.record_count++;
     } else {
-        for (int i = 0; i < MAX_HISTORY - 1; i++) g_ui_data.missed_records[i] = g_ui_data.missed_records[i + 1];
-        g_ui_data.missed_records[MAX_HISTORY - 1] = new_rec;
+        /* 已满 4 条：丢弃最后一条（最早的），整体后移，新记录插最前面 */
+        for (int i = MAX_MISSED_STORE - 1; i > 0; i--) {
+            g_ui_data.missed_records[i] = g_ui_data.missed_records[i - 1];
+        }
+        g_ui_data.missed_records[0] = new_rec;
     }
     g_ui_data.update_flags |= UI_FLAG_RECORDS;
     SystemData_Save_To_Flash();
@@ -171,4 +185,40 @@ void Add_History_EnvTH(uint16_t temp, uint16_t humi) {
     }
     g_ui_data.update_flags |= UI_FLAG_ENV_TH;
     SystemData_Save_To_Flash();
+}
+
+
+/*检查是否漏服的函数，封装成一个独立函数，方便在多个地方调用（定时检查和用户按键检查）*/
+void check_missed_doses(void){
+   
+    char date_str[10];
+    char time_str[10];
+    RTC_TimeTypeDef current_time;
+    BSP_RTC_GetDateTime(&current_time);
+
+    static uint8_t recorded_minute[3] = {0xFF, 0xFF, 0xFF};
+    int idx = -1;
+
+    if(current_time.hour == my_meds[0].hour && current_time.min == my_meds[0].min ) {
+        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
+        idx = 0;
+    } else if(current_time.hour == my_meds[1].hour && current_time.min == my_meds[1].min) {
+        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
+        idx = 1;
+    } else if(current_time.hour == my_meds[2].hour && current_time.min == my_meds[2].min) {
+        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
+        idx = 2;
+    }
+
+    if (idx >= 0) {
+        /* 每分钟只记录一次，防止10秒定时重复添加 */
+        if (recorded_minute[idx] == current_time.min) {
+            return;
+        }
+        recorded_minute[idx] = current_time.min;
+
+        snprintf(date_str, sizeof(date_str), "%02d-%02d", current_time.month, current_time.day);
+        snprintf(time_str, sizeof(time_str), "%02d:%02d", my_meds[idx].hour, my_meds[idx].min);
+        Add_Missed_Record((uint32_t)idx, date_str, time_str);
+    }
 }

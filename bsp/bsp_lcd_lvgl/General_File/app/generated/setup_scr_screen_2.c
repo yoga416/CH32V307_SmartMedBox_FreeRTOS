@@ -72,9 +72,9 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_2
     ui->screen_2_label_2 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_2, "1. --");
+    lv_label_set_text(ui->screen_2_label_2, "");
     lv_label_set_long_mode(ui->screen_2_label_2, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_2_label_2, -40, 61);//坐标位置
+    lv_obj_set_pos(ui->screen_2_label_2, -15, 61);//坐标位置
     lv_obj_set_size(ui->screen_2_label_2, 320, 32);//框的大小
 
     //Write style for screen_2_label_2, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -95,9 +95,9 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_3
     ui->screen_2_label_3 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_3, "4. --");
+    lv_label_set_text(ui->screen_2_label_3, "");
     lv_label_set_long_mode(ui->screen_2_label_3, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_2_label_3, -40, 167);//坐标位置
+    lv_obj_set_pos(ui->screen_2_label_3, -15, 167);//坐标位置
     lv_obj_set_size(ui->screen_2_label_3, 320, 32);//框的大小
 
     //Write style for screen_2_label_3, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -118,9 +118,9 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_4
     ui->screen_2_label_4 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_4, "2. --");
+    lv_label_set_text(ui->screen_2_label_4, "");
     lv_label_set_long_mode(ui->screen_2_label_4, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_2_label_4, -40, 98);//坐标位置
+    lv_obj_set_pos(ui->screen_2_label_4, -15, 98);//坐标位置
     lv_obj_set_size(ui->screen_2_label_4, 320, 32);//框的大小
 
     //Write style for screen_2_label_4, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -141,9 +141,9 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_5
     ui->screen_2_label_5 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_5, "3. --");
+    lv_label_set_text(ui->screen_2_label_5, "");
     lv_label_set_long_mode(ui->screen_2_label_5, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_2_label_5, -40, 133);//坐标位置
+    lv_obj_set_pos(ui->screen_2_label_5, -15, 133);//坐标位置
     lv_obj_set_size(ui->screen_2_label_5, 320, 32);//框的大小
 
     //Write style for screen_2_label_5, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -256,7 +256,7 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_13（心率数值）
     ui->screen_2_label_13 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_13, "--");
+    lv_label_set_text(ui->screen_2_label_13, "00.00");
     lv_label_set_long_mode(ui->screen_2_label_13, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_2_label_13, 103, 264);
     lv_obj_set_size(ui->screen_2_label_13, 130, 32);
@@ -279,7 +279,7 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_14（血氧数值）
     ui->screen_2_label_14 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_14, "--");
+    lv_label_set_text(ui->screen_2_label_14, "00.00");
     lv_label_set_long_mode(ui->screen_2_label_14, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_2_label_14, 106, 302);
     lv_obj_set_size(ui->screen_2_label_14, 130, 32);
@@ -302,7 +302,7 @@ void setup_scr_screen_2(lv_ui *ui)
 
     //Write codes screen_2_label_15（体温数值）
     ui->screen_2_label_15 = lv_label_create(ui->screen_2_cont_1);
-    lv_label_set_text(ui->screen_2_label_15, "--");
+    lv_label_set_text(ui->screen_2_label_15, "00.00");
     lv_label_set_long_mode(ui->screen_2_label_15, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_2_label_15, 110, 336);
     lv_obj_set_size(ui->screen_2_label_15, 130, 32);

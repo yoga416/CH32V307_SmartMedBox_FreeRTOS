@@ -93,7 +93,7 @@ void app_task(void *pvParameters)
     xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
 
     //设置时间：
-    BSP_RTC_ModifyTime(2026, 5, 20, 13, 14, 00); // 设置初始时间为2026年3月2日00:00:00
+    BSP_RTC_ModifyTime(2026, 5, 20, 23, 59, 55); // 设置初始时间为2026年3月2日23:59:00
     //设置闹钟(已经设置就生效，所以放在主循环前面)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
@@ -170,8 +170,7 @@ void lcd_task(void *pvParameters)
             lv_timer_handler();  // 处理 LVGL 定时器
             xSemaphoreGive(xGuiMutex);
         }
-
-        vTaskDelay(pdMS_TO_TICKS(10)); // 每10ms更新一次 LCD
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每20ms更新一次 LCD
     }
 }
 
@@ -180,6 +179,7 @@ void sensor_lcd_task(void *pvParameters)
     static Tianwen_Packet_t sensor_lcd_packet;
     uint32_t last_rtc_update_tick = 0;
     uint32_t current_tick = 0;
+    static uint32_t last_miss_check_tick = 0;  // 漏服检查计时
      (void)pvParameters;
 
     // 开机初始化：从 Flash 恢复之前保存的历史记录和配置数据
@@ -193,6 +193,12 @@ void sensor_lcd_task(void *pvParameters)
         // 1. 触摸屏扫描
         FT6336_Scan();
 
+        // 每10秒检查一次是否漏服
+        current_tick = xTaskGetTickCount();
+        if ((current_tick - last_miss_check_tick) >= pdMS_TO_TICKS(10000)) {
+            check_missed_doses();
+            last_miss_check_tick = current_tick;
+        }
         // ==========================================
         // 第一部分：数据接收，追加进入历史数组并自动存 Flash
         // ==========================================
@@ -299,24 +305,24 @@ void sensor_lcd_task(void *pvParameters)
                 }
 
 
-                // 6. 刷新漏服记录 (静态数据，只有开机或有新记录时刷新一次)
+                // 6. 刷新漏服记录 — index0=最新，显示4行，第一行最新
                 if (g_ui_data.update_flags & UI_FLAG_RECORDS) {
                     lv_obj_t* labels[] = {
-                        guider_ui.screen_2_label_2,//第一行
-                        guider_ui.screen_2_label_4,//第二行
-                        guider_ui.screen_2_label_5,//第三行
-                        guider_ui.screen_2_label_3//第四行
+                        guider_ui.screen_2_label_2, // 第一行 — 最新记录 (index 0)
+                        guider_ui.screen_2_label_4, // 第二行 — 次新 (index 1)
+                        guider_ui.screen_2_label_5, // 第三行 (index 2)
+                        guider_ui.screen_2_label_3  // 第四行 — 最旧 (index 3)
                     };
                     for(int i = 0; i < 4; i++) {
                         if(lv_obj_is_valid(labels[i])) {
                             if(i < g_ui_data.record_count) {
-                                lv_label_set_text_fmt(labels[i], "id:%lu date:%s time:%s", 
-                                    (unsigned long)g_ui_data.missed_records[i].id, 
+                                lv_label_set_text_fmt(labels[i], "no:%lu time:%s turn:%s",
+                                    (unsigned long)g_ui_data.missed_records[i].id,
                                     g_ui_data.missed_records[i].date,
                                     g_ui_data.missed_records[i].time);
-                            } 
-                            else {
-                                lv_label_set_text(labels[i], ""); // 无数据则置为空白
+                               
+                            } else {
+                                lv_label_set_text(labels[i], ""); // 无数据则空白
                             }
                         }
                     }
