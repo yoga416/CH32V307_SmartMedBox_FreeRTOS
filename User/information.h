@@ -60,6 +60,7 @@ typedef struct {
     uint16_t env_humi;   // 环境湿度
 } History_EnvTempHumi_t;
 
+
 // ==========================================
 // 全局核心系统数据结构体
 // ==========================================
@@ -86,9 +87,13 @@ typedef struct {
 
     // 5. 用药闹钟配置
     AlarmSche meds_schedule[MAX_SCHE];       
-    
-    // 6. 实时状态（不存 Flash 的运行状态）
+
+    /*吃药状态*/
+    uint8_t med_status[3];  // 0:未服用, 1:已服用
+
+    // 7. 实时状态（不存 Flash 的运行状态）
     RTC_TimeTypeDef time;
+
     uint32_t update_flags; 
                       
 } UI_DisplayData_t;

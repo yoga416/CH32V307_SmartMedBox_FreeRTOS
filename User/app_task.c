@@ -93,7 +93,7 @@ void app_task(void *pvParameters)
     xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
 
     //设置时间：
-    BSP_RTC_ModifyTime(2026, 5, 20, 23, 59, 55); // 设置初始时间为2026年3月2日23:59:00
+    BSP_RTC_ModifyTime(2026, 5, 20, 23, 59, 50); // 设置初始时间为2026年3月2日23:59:00
     //设置闹钟(已经设置就生效，所以放在主循环前面)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
@@ -170,6 +170,7 @@ void lcd_task(void *pvParameters)
             lv_timer_handler();  // 处理 LVGL 定时器
             xSemaphoreGive(xGuiMutex);
         }
+        
         vTaskDelay(pdMS_TO_TICKS(5)); // 每20ms更新一次 LCD
     }
 }
@@ -199,6 +200,7 @@ void sensor_lcd_task(void *pvParameters)
             check_missed_doses();
             last_miss_check_tick = current_tick;
         }
+       
         // ==========================================
         // 第一部分：数据接收，追加进入历史数组并自动存 Flash
         // ==========================================
@@ -241,6 +243,10 @@ void sensor_lcd_task(void *pvParameters)
             g_ui_data.update_flags |= UI_FLAG_TIME;
         }
 
+         /*检查是否是新的一天，清除med_status*/
+        if(g_ui_data.time.hour == 0 && g_ui_data.time.min == 0 && g_ui_data.time.sec < 5) {
+            memset(g_ui_data.med_status, 0, sizeof(g_ui_data.med_status));
+        }
         // ==========================================
         // 第二部分：统一执行 LVGL UI 渲染 (显示数组中最新的数据)
         // ==========================================
@@ -624,10 +630,4 @@ void check_medication_time(void) {
             break; 
         }
     }
-}
-
-/*检查是否漏服的函数，封装成一个独立函数，方便在多个地方调用（定时检查和用户按键检查）*/
-void check_missed_dose(void) {
-
-
 }

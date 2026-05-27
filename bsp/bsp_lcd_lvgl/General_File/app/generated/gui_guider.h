@@ -68,7 +68,24 @@ typedef struct
 	lv_obj_t *screen_3_cont_1;//设置页面容器
 	lv_obj_t *screen_3_label_1;//设置页面标签
 	lv_obj_t *screen_3_btn_1;//返回上一页（按键）
-	lv_obj_t *screen_3_btn_1_label;//文本
+	lv_obj_t *screen_3_btn_1_label;//(还未到吃药时间)文本
+	// -------- 以下为新增的药品按键和标签声明 --------
+
+// ================= 药品 1 组控件 =================
+lv_obj_t *screen_3_label_med1;       // 药品 1 的名称提示文本（用于显示界面的左侧，如：“药品一”）
+lv_obj_t *screen_3_btn_med1;         // 药品 1 的操作按钮（这是一个按键实体，用户可以点击它）
+lv_obj_t *screen_3_btn_med1_label;   // 药品 1 按钮内部的文字（依附于按钮，用于显示如：“吃药”或按完后的“记录”）
+
+// ================= 药品 2 组控件 =================
+lv_obj_t *screen_3_label_med2;       // 药品 2 的名称提示文本（用于显示界面的左侧，如：“药 2”）
+lv_obj_t *screen_3_btn_med2;         // 药品 2 的操作按钮
+lv_obj_t *screen_3_btn_med2_label;   // 药品 2 按钮内部的文字
+
+// ================= 药品 3 组控件 =================
+lv_obj_t *screen_3_label_med3;       // 药品 3 的名称提示文本（用于显示界面的左侧，如：“药 3”）
+lv_obj_t *screen_3_btn_med3;         // 药品 3 的操作按钮
+lv_obj_t *screen_3_btn_med3_label;   // 药品 3 按钮内部的文字
+// ------------------------------------------------
 
 	lv_obj_t *screen_4;
 	bool screen_4_del;

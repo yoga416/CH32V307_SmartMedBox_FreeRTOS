@@ -21,6 +21,11 @@ void SystemData_Init_Load(void)
     bool found = false;
     current_flash_offset = 0;
 
+    // 先初始化为默认值
+    memset(&g_ui_data, 0, sizeof(UI_DisplayData_t));
+    g_ui_data.magic_num = 0x55AA;
+    g_ui_data.wifi_status = 'F';
+
     for (uint32_t offset = 0; offset + sizeof(UI_DisplayData_t) <= SECTOR_SIZE; offset += sizeof(UI_DisplayData_t)) 
     {
         W25Q_ReadData(DATA_SECTOR_ADDR + offset, (uint8_t *)&temp_data, sizeof(UI_DisplayData_t));
@@ -60,7 +65,7 @@ void SystemData_Init_Load(void)
     if (!found) {
         memset(&g_ui_data, 0, sizeof(UI_DisplayData_t));
         g_ui_data.magic_num = 0x55AA;
-        g_ui_data.wifi_status = 'F'; // 默认无 WiFi
+        g_ui_data.wifi_status = 'F'; // 默认无 WiFi连接
         
         g_ui_data.meds_schedule[0].hour =my_meds[0].hour;
         g_ui_data.meds_schedule[0].min  = my_meds[0].min;
@@ -200,18 +205,21 @@ void check_missed_doses(void){
     int idx = -1;
 
     if(current_time.hour == my_meds[0].hour && current_time.min == my_meds[0].min ) {
-        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
         idx = 0;
-    } else if(current_time.hour == my_meds[1].hour && current_time.min == my_meds[1].min) {
-        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
+    } 
+    else if(current_time.hour == my_meds[1].hour && current_time.min == my_meds[1].min) {
         idx = 1;
-    } else if(current_time.hour == my_meds[2].hour && current_time.min == my_meds[2].min) {
-        APP_LOG("CheckMissed", "Checking for missed dose at %02d:%02d", current_time.hour, current_time.min);
+    } 
+    else if(current_time.hour == my_meds[2].hour && current_time.min == my_meds[2].min) {
         idx = 2;
     }
 
     if (idx >= 0) {
-        /* 每分钟只记录一次，防止10秒定时重复添加 */
+        /* 优先检查：已服用 → 直接返回，不记录漏服 */
+        if (g_ui_data.med_status[idx]==1) {
+            return;
+        }
+        /* 其次：每分钟只记录一次 */
         if (recorded_minute[idx] == current_time.min) {
             return;
         }

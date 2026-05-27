@@ -71,6 +71,15 @@ static void clear_all_old_pointers(void)
     guider_ui.screen_3_label_1 = NULL;
     guider_ui.screen_3_btn_1 = NULL;
     guider_ui.screen_3_btn_1_label = NULL;
+    guider_ui.screen_3_label_med1 = NULL;      
+    guider_ui.screen_3_btn_med1 = NULL;        
+    guider_ui.screen_3_btn_med1_label = NULL;   
+    guider_ui.screen_3_label_med2 = NULL;       
+    guider_ui.screen_3_btn_med2 = NULL;        
+    guider_ui.screen_3_btn_med2_label = NULL;   
+    guider_ui.screen_3_label_med3 = NULL;       
+    guider_ui.screen_3_btn_med3 = NULL;         
+    guider_ui.screen_3_btn_med3_label = NULL;   
 
     // === 屏幕4 (screen_4) ===
     guider_ui.screen_4_cont_1 = NULL;
