@@ -67,14 +67,14 @@ typedef enum {
     MSG_FACE_RECOG_FAIL,       // 人脸识别失败
     MSG_FACE_ADD_START,        // 开始录入人脸
     MSG_FACE_ADD_SUCCESS,      // 录入人脸成功
-    MSG_BTN_EAT_PRESSED,       // 用户在屏幕上按下了"吃药"键
-    MSG_CHECK_MED_TIME         // 检查吃药时间（定时触发）
+    MSG_FACE_ADD_FAIL          // 录入人脸失败
 } AppEventType_t;
+
 
 // 统一的消息结构体
 typedef struct {
     AppEventType_t event_id;
-    uint32_t       data;       // 预留参数，比如可以用来传错误码或者特定的数值
+    uint8_t       data[4];       // 预留参数，比如可以用来传错误码或者特定的数值
 } AppMsg_t;
 
 
@@ -87,6 +87,12 @@ typedef struct {
 #define CMD_WEATHER_SYNC 0x11
 #define CMD_LOCATION_SYNC 0x12
 #define CMD_WIFI_STATUS_UPDATE 0x13
+
+/* 人脸识别结果数据帧结构 */
+/* 数据位 */
+/* payload[0]: 命令 (0：注册，1：识别) */
+/* payload[1]: 识别结果 (0：失败, 1：成功)/注册结果（2：成功，3：失败） */
+/* payload[2]: 用户ID */
 
 extern  UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
 extern uint8_t g_current_active_user_id; // 当前活跃用户ID

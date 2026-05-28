@@ -14,9 +14,9 @@ uint8_t g_current_active_user_id = 0;/*可选0，1，2...*/
 
 static uint32_t current_flash_offset[MAX_USER] = {0};
 AlarmSche my_meds[3] = {
-    {0, 2, 1},
-    {0, 5, 1},
-    {0, 8, 1}
+    {22, 18, 1},
+    {22, 20, 1},
+    {22, 22, 1}
 };
 uint16_t current_time_virvual[6]={2026,5,28,0,0,50}; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 
@@ -89,7 +89,12 @@ void SystemData_Init_Load(void)
         
         // 4. 【重要逻辑调整】：不再用单组 my_meds 强行覆盖已经读出来的、属于不同用户的独立时间！
         // 如果需要让任务层知道当前选中的 0 号用户的时间，可以在循环外单独对齐：
-
+        for(int i = 0; i < MAX_USER; i++) {
+        for(int j = 0; j < MAX_SCHE; j++) {
+            g_ui_data[i].meds_schedule[j].hour=my_meds[j].hour;
+            g_ui_data[i].meds_schedule[j].min=my_meds[j].min;
+        }
+    }
         // 开机强制刷新该用户对应的整个 UI 标志位
         g_ui_data[uid].update_flags = 0xFFFFFFFF; 
     }

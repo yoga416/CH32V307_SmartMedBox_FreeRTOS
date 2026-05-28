@@ -42,7 +42,6 @@ extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
 extern QueueHandle_t sensor_data_lcd_queue; // 传感器数据队列
 extern SemaphoreHandle_t xSem_face_recog; // 人脸识别信号量
 
-
 //事件定义
 QueueHandle_t xAppEventQueue = NULL;
 /* --- 全局句柄定义 --- */
@@ -281,6 +280,8 @@ uint8_t g_peripheral_init(void)
         while (1) {}
     }
     
+
+    FR_Init(); // 初始化人脸识别模块
  
      /* 4. 传感器和其他外设初始化 */
     // SHT40 温湿度

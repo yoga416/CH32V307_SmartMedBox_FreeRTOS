@@ -1,4 +1,4 @@
-#ifdef __FACIAL_REG_H
+#ifndef __FACIAL_REG_H
 #define __FACIAL_REG_H
 
 #include <stdio.h>

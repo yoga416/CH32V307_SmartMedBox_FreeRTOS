@@ -65,6 +65,7 @@ SemaphoreHandle_t xSem_face_result_no; // 人脸识别结果信号量(识别失�
 SemaphoreHandle_t xSem_face_add; // 人脸添加开始同步信号量
 SemaphoreHandle_t xSem_face_add_result; // 人脸添加结果同步信号量
 SemaphoreHandle_t xSem_Btn_Eat; // 吃药按钮按下同步信号量
+
 /* 任务句柄 */
 TaskHandle_t bspSensorTask_Handler;
 TaskHandle_t appTask_Handler;
@@ -82,6 +83,7 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
 // 在主循环中处理接收
 FR_packet_t rx_pkt;
  static TickType_t last_check_mechine_time = 0;
+
 void check_medication_time(void); // 声明检查吃药时间的函数
 
 void app_task(void *pvParameters)
@@ -104,7 +106,8 @@ void app_task(void *pvParameters)
 
     //定义一个变量来跟踪当前检查的吃药时间索引
    AppMsg_t msg;
-
+    AppMsg_t msg_FR;
+     uint32_t last_time = 0;
     for (;;)
     {
        
@@ -118,11 +121,17 @@ void app_task(void *pvParameters)
                 case MSG_FACE_RECOG_START:// 人脸识别开始事件
                     APP_LOG("[App] Event: Face recognition started\n");
                     // 模拟：给系统自己发一个成功事件（实战中这应该由串口中断发）
-                    AppMsg_t sim_msg = { .event_id = MSG_FACE_RECOG_SUCCESS };
-                    xQueueSend(xAppEventQueue, &sim_msg, 0);
+                    // AppMsg_t sim_msg = { .event_id = MSG_FACE_RECOG_SUCCESS };
+                    // xQueueSend(xAppEventQueue, &sim_msg, 0);
                     break;
 
                 case MSG_FACE_RECOG_SUCCESS:// 人脸识别成功事件
+                    /*切换用户*/
+                    SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
+                    g_current_active_user_id = msg.data[2]; // 从事件数据中获取识别到的用户ID
+                    APP_LOG("[App] Recognized User ID: %d\n", g_current_active_user_id);
+                    // 2. 更新界面显示（通过设置全局 UI 数据结构的标志位，让界面任务知道要刷新了）            
+                    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_USER_STEP;
                     APP_LOG("[App] Event: Face recognition Success\n");
                     tianwen_packet.id = CMD_TX_REGISTERED_USER; 
                     xQueueSend(sendtianwenQueue, &tianwen_packet, 0); 
@@ -135,18 +144,11 @@ void app_task(void *pvParameters)
                     xQueueSend(sendtianwenQueue, &tianwen_packet, 0); 
                     break;
 
-                case MSG_BTN_EAT_PRESSED:// 吃药按钮按下事件
-                    APP_LOG("[App] Event: User pressed EAT button\n");
-                    // 用户按键后，主动触发一次时间检查
-                    msg.event_id = MSG_CHECK_MED_TIME;
-                    xQueueSend(xAppEventQueue, &msg, 0);
+                case MSG_FACE_ADD_FAIL:// 人脸添加失败事件
+                    APP_LOG("[App] Event: Face add Fail\n");
                     break;
 
-                case MSG_CHECK_MED_TIME:// 检查吃药时间事件（定时触发或者按键触发）
-                    APP_LOG("[App] Event: Checking Medication Time\n");
-                    check_medication_time(); // 调用下面封装的函数
-                    break;
-
+                
                 // ... 处理其他事件 ...
                 default:
                     break;
@@ -157,14 +159,55 @@ void app_task(void *pvParameters)
         if (watchdogTask_Handler != NULL) {
             xTaskNotifyGive(watchdogTask_Handler);
         }
-        vTaskDelay(pdMS_TO_TICKS(20)); // 每20ms检查一次事件队列和喂一次狗
+
+        //    // /*测试串口发送5s发一次*/
+        // if(xTaskGetTickCount() - last_time >= pdMS_TO_TICKS(5000)) {
+        //     last_time = xTaskGetTickCount();
+        // FR_packet_t test_pkt;
+        // test_pkt.sensor_id = 0x00; // 模拟一个传感器ID
+        // test_pkt.data_len = 3; // 模拟3字节数据
+        // test_pkt.payload[0] = 0x01; // 模拟命令：注册(0x00)/识别(0x01)
+        // test_pkt.payload[1] = 0x01; // 模拟结果：注册失败(0x03)/识别失败(0x00)，注册成功(0x00)/识别成功(0x01)
+        // test_pkt.payload[2] = 0x02; // 模拟用户ID 0x00//0x01/0x02...
+        // FR_SendPacket((FR_packet_t *)&test_pkt); // 发送到 ESP8266
+        // }
+
+        /*接收人脸识别的数据*/
+        if (FR_ReceivePacket_Block(&rx_pkt, pdMS_TO_TICKS(100))==0) {
+         if ( rx_pkt.data_len >= 1)
+         {
+            /* payload[0]: 命令 (0：注册，1：识别) */
+            /* payload[1]: 识别结果 (0：失败, 1：成功)/注册结果（2：成功，3：失败） */
+            /* payload[2]: 用户ID */ 
+            if (rx_pkt.payload[0] == 0x00) { // 注册相关
+                if (rx_pkt.payload[1] == 0x02) {
+                    msg_FR.event_id = MSG_FACE_ADD_SUCCESS;
+                    xQueueSend(xAppEventQueue, &msg_FR, 0);
+                    // 可以在这里更新 UI 或者执行其他逻辑
+                } else if (rx_pkt.payload[1] == 0x03) {
+                    msg_FR.event_id = MSG_FACE_ADD_FAIL;
+                    xQueueSend(xAppEventQueue, &msg_FR, 0);
+                }
+            } else if (rx_pkt.payload[0] == 0x01) { // 识别相关
+                if (rx_pkt.payload[1] == 0x01) {
+                    msg_FR.event_id = MSG_FACE_RECOG_SUCCESS;
+                    msg_FR.data[2] = rx_pkt.payload[2]; 
+                    xQueueSend(xAppEventQueue, &msg_FR, 0);
+                    // 可以在这里更新 UI 或者执行其他逻辑
+                } else if (rx_pkt.payload[1] == 0x00) {
+                    msg_FR.event_id = MSG_FACE_RECOG_FAIL;
+                    xQueueSend(xAppEventQueue, &msg_FR, 0);
+                }
+            }   
+         }
+        }
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每20ms检查一次事件队列和喂一次狗
     }
 }
 
 
 void lcd_task(void *pvParameters)
 {
-    
     for(;;) {
 
         if(xSemaphoreTake(xGuiMutex, portMAX_DELAY) == pdTRUE) {
@@ -172,10 +215,11 @@ void lcd_task(void *pvParameters)
             lv_timer_handler();  // 处理 LVGL 定时器
             xSemaphoreGive(xGuiMutex);
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(5)); // 每20ms更新一次 LCD
+    
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms更新一次 LCD
     }
 }
+
 
 void sensor_lcd_task(void *pvParameters)
 {
@@ -235,7 +279,6 @@ void sensor_lcd_task(void *pvParameters)
             }
         }
         
-
         // 限制 1秒 更新一次全局系统时间
         current_tick = xTaskGetTickCount();
         if ((current_tick - last_rtc_update_tick) >= pdMS_TO_TICKS(1000)) 
@@ -245,10 +288,6 @@ void sensor_lcd_task(void *pvParameters)
             g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_TIME;
         }
 
-        //  /*检查是否是新的一天，清除med_status*/
-        // if(g_ui_data[g_current_active_user_id].time.hour == 0 && g_ui_data[g_current_active_user_id].time.min == 0 && g_ui_data[g_current_active_user_id].time.sec < 5) {
-        //     memset(g_ui_data[g_current_active_user_id].med_status, 0, sizeof(g_ui_data[g_current_active_user_id].med_status));
-        // }
         // ==========================================
         // 第二部分：统一执行 LVGL UI 渲染 (显示数组中最新的数据)
         // ==========================================
@@ -443,13 +482,14 @@ void sensor_lcd_task(void *pvParameters)
             last_check_mechine_time = xTaskGetTickCount(); // 更新上一次检查的时间
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms更新一次 LCD
     }   
 }
 
 
 void bsp_sensor_task(void *pvParameters)
 {
+    
     A7670C_Init();
     for(;;)
     {
@@ -515,6 +555,8 @@ void bsp_sensor_task(void *pvParameters)
                     break;
             }
         }
+     
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms检查一次系统指令队列
     }
 }
 
@@ -644,17 +686,7 @@ void usart_task(void *pvParameters)
             }
         }
 
-        /*接收人脸识别的数据*/
-        if (FR_GetPacket(&rx_pkt)==1) {
-        printf("[App] Received Face Recognition Packet: ID=0x%02X, DataLen=%d\n", rx_pkt.sensor_id, rx_pkt.data_len);
-         if ( rx_pkt.data_len >= 1)
-         {
-            for(int i = 0; i < rx_pkt.data_len; i++) {
-                printf("  Data[%d] = 0x%02X\n", i, rx_pkt.payload[i]);
-            }
-         }
-        }
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
     }
 
