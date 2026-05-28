@@ -10,7 +10,7 @@
 // 移除了原来的 DEFAULT_ALARM 固定数组，统一使用 my_meds 管理
 extern  UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
 // 记录当前屏幕正在操作哪个用户
-uint8_t g_current_active_user_id = 2;/*可选0，1，2...*/
+uint8_t g_current_active_user_id = 0;/*可选0，1，2...*/
 
 static uint32_t current_flash_offset[MAX_USER] = {0};
 AlarmSche my_meds[3] = {
@@ -24,8 +24,6 @@ void SystemData_Init_Load(void)
 {
     UI_DisplayData_t temp_data;
     
-    // 【关键控制】开机结束后，默认当前屏幕操作 0 号用户
-    g_current_active_user_id = 0; 
 
     // 循环遍历加载所有用户的数据，实现真正的数据隔离初始化
     for (uint8_t uid = 0; uid < MAX_USER; uid++)

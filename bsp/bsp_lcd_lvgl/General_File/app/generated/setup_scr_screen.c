@@ -262,7 +262,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_shadow_width(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen.
-//Write codes screen_label_user (新增：当前用户显示标签)
+    //Write codes screen_label_user (新增：当前用户显示标签)
     ui->screen_label_user = lv_label_create(ui->screen_cont_1);
     
     // 默认显示文字，根据全局控制变量动态判定

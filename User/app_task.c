@@ -412,9 +412,9 @@ void sensor_lcd_task(void *pvParameters)
             }
         }
 
-        /*刷新用户显示*/
-        // 🌟【联动新增】：让屏幕上的用户标签实时刷新汉字
-        if (guider_ui.screen_label_user != NULL) 
+           if(g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_USER_STEP) 
+                {
+            if (guider_ui.screen_label_user != NULL) 
             {
                 if (g_current_active_user_id == 0) {
                 
@@ -425,6 +425,7 @@ void sensor_lcd_task(void *pvParameters)
                 lv_label_set_text(guider_ui.screen_label_user, "在");
                     }
             }
+        }
                  // 刷新完成后，清除更新标志
                 g_ui_data[g_current_active_user_id].update_flags = 0; 
                 xSemaphoreGive(xGuiMutex);
@@ -439,7 +440,7 @@ void sensor_lcd_task(void *pvParameters)
             last_check_mechine_time = xTaskGetTickCount(); // 更新上一次检查的时间
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }   
 }
 

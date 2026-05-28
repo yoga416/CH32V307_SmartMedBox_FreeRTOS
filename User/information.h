@@ -20,7 +20,7 @@
 #define UI_FLAG_RECORDS       (1 << 5)
 #define UI_FLAG_SCHEDULE      (1 << 6)
 #define UI_FLAG_MED_STATUS    (1 << 7) // 吃药状态更新
-
+#define UI_FLAG_USER_STEP     (1 << 8) // 吃药界面分步刷新控制
 /*时间开始*/
 extern uint16_t current_time_virvual[6]; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 

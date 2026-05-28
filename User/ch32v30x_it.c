@@ -285,14 +285,21 @@ void EXTI15_10_IRQHandler(void)
         
         if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_13) == 0)
         {
-            // 1. 切换用户 (假设 MAX_USER 为 3，支持 0, 1, 2 循环)
+
+            /*保存当前用户数据*/
+            SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
+            
+
+             // 1. 切换用户 (假设 MAX_USER 为 3，支持 0, 1, 2 循环)
             g_current_active_user_id = (g_current_active_user_id + 1) % 3;
             
-            // 2. 串口打印当前活跃用户，方便观察
-            APP_LOG("\r\n[Key Action] >>> User Changed to: [User %d] <<<\r\n", g_current_active_user_id);
+            APP_LOG("Switched to user ID: %d\r\n", g_current_active_user_id);
+            
+             // 2. 更新界面显示（通过设置全局 UI 数据结构的标志位，让界面任务知道要刷新了）            
+            g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_USER_STEP;
             
             // 3. 测试自动保存：切完人立刻把当前人的配置写进他独立的 Flash 扇区
-            SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
+            //SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
         }
         
         EXTI_ClearITPendingBit(EXTI_Line13);
