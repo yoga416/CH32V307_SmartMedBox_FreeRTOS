@@ -19,7 +19,7 @@
 #define UI_FLAG_WIFI          (1 << 4)
 #define UI_FLAG_RECORDS       (1 << 5)
 #define UI_FLAG_SCHEDULE      (1 << 6)
-
+#define UI_FLAG_MED_STATUS    (1 << 7) // 吃药状态更新
 
 
 
@@ -95,6 +95,8 @@ typedef struct {
     RTC_TimeTypeDef time;
 
     uint32_t update_flags; 
+
+    bool screen_3_update_step; // 0/1，控制吃药界面分步刷新
                       
 } UI_DisplayData_t;
 

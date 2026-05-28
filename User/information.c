@@ -5,15 +5,15 @@
 #include "information.h"
 #define DATA_SECTOR_ADDR  0x7F8000
 #define SECTOR_SIZE       4096
-
+#include "../bsp/bsp_a7670c/bsp_a7670c.h"
 // 移除了原来的 DEFAULT_ALARM 固定数组，统一使用 my_meds 管理
 extern UI_DisplayData_t g_ui_data;
 static uint32_t current_flash_offset = 0;
 
 AlarmSche my_meds[3] = {
-    {0, 0, 1},
-    {0, 1, 1},
-    {0, 2, 1}
+    {7, 40, 1},
+    {7, 41, 1},
+    {7, 42, 1}
 };
 void SystemData_Init_Load(void) 
 {
@@ -201,6 +201,17 @@ void check_missed_doses(void){
     RTC_TimeTypeDef current_time;
     BSP_RTC_GetDateTime(&current_time);
 
+    /*检查是否过了一天，是，清除按键的记录*/
+    if(current_time.hour == 0 && current_time.min == 0 && current_time.sec < 20) {
+        g_ui_data.med_status[0] =false;
+        g_ui_data.med_status[1] = false;
+        g_ui_data.med_status[2] = false;
+
+        /*刷新屏幕*/
+         g_ui_data.update_flags |= UI_FLAG_ENV_TH;
+        /*并保存到Flash*/
+        SystemData_Save_To_Flash();
+    }
     static uint8_t recorded_minute[3] = {0xFF, 0xFF, 0xFF};
     int idx = -1;
 
@@ -216,17 +227,21 @@ void check_missed_doses(void){
 
     if (idx >= 0) {
         /* 优先检查：已服用 → 直接返回，不记录漏服 */
-        if (g_ui_data.med_status[idx]==1) {
-            return;
-        }
+        if (g_ui_data.med_status[idx]==false) {
         /* 其次：每分钟只记录一次 */
         if (recorded_minute[idx] == current_time.min) {
             return;
         }
         recorded_minute[idx] = current_time.min;
 
+        /*发送短信漏服提醒*/
+        char sms_text[64];
+        snprintf(sms_text, sizeof(sms_text), "您有药物[%d]未按时服用，请及时服药！", idx + 1);
+        A7670C_SendSMS_Auto("18135183446", sms_text);
+        A7670C_WaitResponse("OK", 5000); // 等待模块响应，超时设置为5秒
         snprintf(date_str, sizeof(date_str), "%02d-%02d", current_time.month, current_time.day);
         snprintf(time_str, sizeof(time_str), "%02d:%02d", my_meds[idx].hour, my_meds[idx].min);
         Add_Missed_Record((uint32_t)idx, date_str, time_str);
+    }
     }
 }

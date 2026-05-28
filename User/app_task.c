@@ -152,7 +152,6 @@ void app_task(void *pvParameters)
             xTaskNotifyGive(watchdogTask_Handler);
         }
 
-        //检查是否漏服
 
     
         vTaskDelay(pdMS_TO_TICKS(20)); // 每20ms检查一次事件队列和喂一次狗
@@ -186,8 +185,8 @@ void sensor_lcd_task(void *pvParameters)
     // 开机初始化：从 Flash 恢复之前保存的历史记录和配置数据
     SystemData_Init_Load();
 
-    // 将 my_meds 同步到 g_ui_data.meds_schedule
-    memcpy(g_ui_data.meds_schedule, my_meds, sizeof(my_meds));
+    // 将从 Flash 加载的 meds_schedule 同步到 my_meds
+    memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
 
     for(;;)
     {
@@ -362,6 +361,56 @@ void sensor_lcd_task(void *pvParameters)
                         lv_dropdown_set_selected(guider_ui.screen_4_ddlist_3, sel);
                     }
                 }
+
+                /*检查是否到吃药时间刷新*/
+                if(g_ui_data.update_flags & UI_FLAG_MED_STATUS) 
+                {
+                if(g_ui_data.screen_3_update_step==true)
+                {
+                // 5. 刷新吃药状态按钮 (控制 Screen 3 上的按键显示)
+                if (lv_obj_is_valid(guider_ui.screen_3_btn_med1)) {
+                    if (g_ui_data.med_status[0] == 1) { // 已经吃药
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med1_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med1_label, "已服");
+                        lv_obj_add_state(guider_ui.screen_3_btn_med1, LV_STATE_DISABLED); // 禁用按钮
+                    } else { // 未吃药
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med1_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med1_label, "吃药");
+                        lv_obj_clear_state(guider_ui.screen_3_btn_med1, LV_STATE_DISABLED); // 解除禁用
+                    }
+                }
+                
+                if (lv_obj_is_valid(guider_ui.screen_3_btn_med2)) {
+                    if (g_ui_data.med_status[1] == 1) {
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med2_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med2_label, "已服");
+                        lv_obj_add_state(guider_ui.screen_3_btn_med2, LV_STATE_DISABLED);
+                    } else {
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med2_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med2_label, "吃药");
+                        lv_obj_clear_state(guider_ui.screen_3_btn_med2, LV_STATE_DISABLED);
+                    }
+                }
+
+                if (lv_obj_is_valid(guider_ui.screen_3_btn_med3)) {
+                    if (g_ui_data.med_status[2] == 1) {
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med3_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med3_label, "已服");
+                        lv_obj_add_state(guider_ui.screen_3_btn_med3, LV_STATE_DISABLED);
+                    } else {
+                        if (lv_obj_is_valid(guider_ui.screen_3_btn_med3_label)) 
+                            lv_label_set_text(guider_ui.screen_3_btn_med3_label, "吃药");
+                        lv_obj_clear_state(guider_ui.screen_3_btn_med3, LV_STATE_DISABLED);
+                    }
+                }
+            }
+            else if(g_ui_data.screen_3_update_step==false)
+            {
+                if (lv_obj_is_valid(guider_ui.screen_3_label_1)){
+               lv_label_set_text(guider_ui.screen_3_label_1, "不在用药时间"); 
+                }
+            }
+        }
                  // 刷新完成后，清除更新标志
                 g_ui_data.update_flags = 0; 
                 xSemaphoreGive(xGuiMutex);
@@ -604,30 +653,45 @@ void watchdog_task(void *pvParameters)
 
 }
 
-
-//// 检查吃药时间的函数，封装成一个独立函数，方便在多个地方调用（定时检查和用户按键检查）
-/*规定时间为10分钟*/
+/*规定时间为前后10分钟*/
 void check_medication_time(void) {
     RTC_TimeTypeDef current_time;
     BSP_RTC_GetDateTime(&current_time);
     
     int16_t curr_total_mins = current_time.hour * 60 + current_time.min;
-
+    
+    APP_LOG("[Check Med Time] Current time: %02d:%02d\n", current_time.hour, current_time.min);
+    
+    Tianwen_Packet_t tw_pkt;
+    tw_pkt.data_len = 0;
+    
+    uint8_t is_time_to_eat = 0; // 核心：定义一个标志位，0代表没到时间，1代表到时间了
+    
+    // 遍历检查设定的3个吃药时间
     for (int i = 0; i < MAX_SCHE; i++) {
         int16_t target_total_mins = my_meds[i].hour * 60 + my_meds[i].min;
         int16_t diff_mins = curr_total_mins - target_total_mins;
-
-        Tianwen_Packet_t tw_pkt;
-        tw_pkt.data_len = 0;
-
+        
+        // 处理跨天的情况 (如设定23:55，当前00:05)
+        if (diff_mins > 12 * 60) diff_mins -= 24 * 60;
+        else if (diff_mins < -12 * 60) diff_mins += 24 * 60;
+        
+        // 只要查到有一顿药在 +/-10 分钟内
         if (diff_mins >= -10 && diff_mins <= 10) {
-            tw_pkt.id = CMD_TX_TIME_TO_EAT; 
-            xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
-            break; 
-        } else if (diff_mins < -10) {
-            tw_pkt.id = CMD_TX_NOT_TIME_TO_EAT; 
-            xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
-            break; 
+            is_time_to_eat = 1; // 把标志位置为1
+            break; // 找到了就可以直接退出循环了，不用再查后面的药
         }
     }
+    
+    // 循环结束后，统一根据标志位去更新UI和发送语音指令
+    if (is_time_to_eat) {
+        g_ui_data.screen_3_update_step = true;  // 进入吃药确认界面
+        tw_pkt.id = CMD_TX_TIME_TO_EAT; 
+    } else {
+        g_ui_data.screen_3_update_step = false; // 进入未到时间界面
+        tw_pkt.id = CMD_TX_NOT_TIME_TO_EAT; 
+    }
+    
+    // 统一发送一次队列消息
+    xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
 }
