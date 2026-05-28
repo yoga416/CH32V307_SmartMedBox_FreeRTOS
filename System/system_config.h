@@ -39,8 +39,9 @@
 #define TS_USART_RX_PIN     GPIO_Pin_11
 
 //人脸识别串口 - USART5 默认
-#define FR_USART_PORT       GPIOC
+#define FR_USART_TX_PORT       GPIOC
 #define FR_USART_TX_PIN     GPIO_Pin_12
+#define FR_USART_RX_PORT     GPIOD
 #define FR_USART_RX_PIN     GPIO_Pin_2
 
 /* =========================================================================

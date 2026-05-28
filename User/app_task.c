@@ -43,6 +43,8 @@
 #include "information.h"
 #include "gui_guider.h"
 #include "events_init.h"
+#include "facial.h"
+#include "facial_reg.h"
 /* 触摸屏扫描（FT6336 软件 I2C） */
 #include "touch.h"
 
@@ -77,7 +79,8 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
  extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
  extern uint8_t g_current_active_user_id; // 当前活跃用户ID
  UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
-
+// 在主循环中处理接收
+FR_packet_t rx_pkt;
  static TickType_t last_check_mechine_time = 0;
 void check_medication_time(void); // 声明检查吃药时间的函数
 
@@ -616,7 +619,7 @@ void usart_task(void *pvParameters)
             if (rx_packet.sensor_id == CMD_WIFI_STATUS_UPDATE)
             {
                 
-                APP_LOG("[WiFi] Status update received: 0x%02X\n", rx_packet.payload[0]);
+                //APP_LOG("[WiFi] Status update received: 0x%02X\n", rx_packet.payload[0]);
                 if(rx_packet.payload[0] == 0x32) {
                     // 接收到心跳包，说明模块在线，更新 WiFi 状态和最后收到状态的时间戳
                     last_wifi_tick = xTaskGetTickCount();
@@ -641,6 +644,16 @@ void usart_task(void *pvParameters)
             }
         }
 
+        /*接收人脸识别的数据*/
+        if (FR_GetPacket(&rx_pkt)==1) {
+        printf("[App] Received Face Recognition Packet: ID=0x%02X, DataLen=%d\n", rx_pkt.sensor_id, rx_pkt.data_len);
+         if ( rx_pkt.data_len >= 1)
+         {
+            for(int i = 0; i < rx_pkt.data_len; i++) {
+                printf("  Data[%d] = 0x%02X\n", i, rx_pkt.payload[i]);
+            }
+         }
+        }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
     }
