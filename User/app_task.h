@@ -5,6 +5,7 @@
 #include "task.h"
 #include "semphr.h"
 #include "Middle_ring_buffer.h"
+#include "information.h"
 /* 任务优先级定义 */
 #define USART_TASK_PRIO     4
 #define SENSOR_TASK_PRIO    2
@@ -87,7 +88,8 @@ typedef struct {
 #define CMD_LOCATION_SYNC 0x12
 #define CMD_WIFI_STATUS_UPDATE 0x13
 
-
+extern  UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
+extern uint8_t g_current_active_user_id; // 当前活跃用户ID
 // 声明全局队列句柄
 extern QueueHandle_t xAppEventQueue;
 /* 全局函数声明 */

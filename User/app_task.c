@@ -75,7 +75,8 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
  extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
  extern SystemCommand_t received_cmd;
  extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
- UI_DisplayData_t g_ui_data; // 全局 UI 数据结构实例
+ extern uint8_t g_current_active_user_id; // 当前活跃用户ID
+ UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
 
  static TickType_t last_check_mechine_time = 0;
 void check_medication_time(void); // 声明检查吃药时间的函数
@@ -184,7 +185,7 @@ void sensor_lcd_task(void *pvParameters)
     SystemData_Init_Load();
 
     // 将从 Flash 加载的 meds_schedule 同步到 my_meds
-    memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+    memcpy(my_meds, g_ui_data[g_current_active_user_id].meds_schedule, sizeof(my_meds));
 
     for(;;)
     {
@@ -236,13 +237,13 @@ void sensor_lcd_task(void *pvParameters)
         if ((current_tick - last_rtc_update_tick) >= pdMS_TO_TICKS(1000)) 
         {
             last_rtc_update_tick = current_tick;
-            BSP_RTC_GetDateTime(&g_ui_data.time);
-            g_ui_data.update_flags |= UI_FLAG_TIME;
+            BSP_RTC_GetDateTime(&g_ui_data[g_current_active_user_id].time);
+            g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_TIME;
         }
 
         //  /*检查是否是新的一天，清除med_status*/
-        // if(g_ui_data.time.hour == 0 && g_ui_data.time.min == 0 && g_ui_data.time.sec < 5) {
-        //     memset(g_ui_data.med_status, 0, sizeof(g_ui_data.med_status));
+        // if(g_ui_data[g_current_active_user_id].time.hour == 0 && g_ui_data[g_current_active_user_id].time.min == 0 && g_ui_data[g_current_active_user_id].time.sec < 5) {
+        //     memset(g_ui_data[g_current_active_user_id].med_status, 0, sizeof(g_ui_data[g_current_active_user_id].med_status));
         // }
         // ==========================================
         // 第二部分：统一执行 LVGL UI 渲染 (显示数组中最新的数据)
@@ -252,22 +253,22 @@ void sensor_lcd_task(void *pvParameters)
         
         // 如果页面发生了切换，强制刷新所有数据，防止进入新页面后数据显示为空
         if (curr_scr != last_scr) {
-            g_ui_data.update_flags = 0xFFFFFFFF;
+            g_ui_data[g_current_active_user_id].update_flags = 0xFFFFFFFF;
             last_scr = curr_scr;
         }
 
-        if (g_ui_data.update_flags != 0) 
+        if (g_ui_data[g_current_active_user_id].update_flags != 0) 
         {
             if(xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
             {
                 // 强制同步：确保 my_meds 始终与 g_ui_data (Flash数据) 一致
                 extern AlarmSche my_meds[3];
-                memcpy(my_meds, g_ui_data.meds_schedule, sizeof(my_meds));
+                memcpy(my_meds, g_ui_data[g_current_active_user_id].meds_schedule, sizeof(my_meds));
 
                 // 1. 刷新心率血氧 (读取数组最后一个元素)
-                if ((g_ui_data.update_flags & UI_FLAG_HR_SPO2) && g_ui_data.hr_count > 0) {
-                    uint16_t latest_hr = g_ui_data.hr_history[g_ui_data.hr_count - 1].hr;
-                    uint16_t latest_spo2 = g_ui_data.hr_history[g_ui_data.hr_count - 1].spo2;
+                if ((g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_HR_SPO2) && g_ui_data[g_current_active_user_id].hr_count > 0) {
+                    uint16_t latest_hr = g_ui_data[g_current_active_user_id].hr_history[g_ui_data[g_current_active_user_id].hr_count - 1].hr;
+                    uint16_t latest_spo2 = g_ui_data[g_current_active_user_id].hr_history[g_ui_data[g_current_active_user_id].hr_count - 1].spo2;
                     if (lv_obj_is_valid(guider_ui.screen_2_label_13))
                         lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d b", latest_hr/100); 
                     if (lv_obj_is_valid(guider_ui.screen_2_label_14))
@@ -275,16 +276,16 @@ void sensor_lcd_task(void *pvParameters)
                 }
 
                 // 2. 刷新体温 
-                if ((g_ui_data.update_flags & UI_FLAG_BODY_TEMP) && g_ui_data.bt_count > 0) {
-                    uint16_t latest_bt = g_ui_data.bt_history[g_ui_data.bt_count - 1].body_temp;
+                if ((g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_BODY_TEMP) && g_ui_data[g_current_active_user_id].bt_count > 0) {
+                    uint16_t latest_bt = g_ui_data[g_current_active_user_id].bt_history[g_ui_data[g_current_active_user_id].bt_count - 1].body_temp;
                     if (lv_obj_is_valid(guider_ui.screen_2_label_15)) 
                         lv_label_set_text_fmt(guider_ui.screen_2_label_15, "%d.%02d°C", latest_bt/100, latest_bt%100);
                 }
 
                 // 3. 刷新环境温湿度
-                if ((g_ui_data.update_flags & UI_FLAG_ENV_TH) && g_ui_data.env_count > 0) {
-                    uint16_t latest_et = g_ui_data.env_history[g_ui_data.env_count - 1].env_temp;
-                    uint16_t latest_eh = g_ui_data.env_history[g_ui_data.env_count - 1].env_humi;
+                if ((g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_ENV_TH) && g_ui_data[g_current_active_user_id].env_count > 0) {
+                    uint16_t latest_et = g_ui_data[g_current_active_user_id].env_history[g_ui_data[g_current_active_user_id].env_count - 1].env_temp;
+                    uint16_t latest_eh = g_ui_data[g_current_active_user_id].env_history[g_ui_data[g_current_active_user_id].env_count - 1].env_humi;
                     if (lv_obj_is_valid(guider_ui.screen_label_7))
                         lv_label_set_text_fmt(guider_ui.screen_label_7, "%d.%02d°C", latest_et/100, latest_et%100);
                     if (lv_obj_is_valid(guider_ui.screen_label_8))
@@ -294,22 +295,22 @@ void sensor_lcd_task(void *pvParameters)
                  /*显示wifi状态*/
                 if (lv_obj_is_valid(guider_ui.screen_label_2))
                 {
-                    lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data.wifi_status);
+                    lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data[g_current_active_user_id].wifi_status);
                 }
 
                 // 4. 刷新时间
-                if (g_ui_data.update_flags & UI_FLAG_TIME) {
+                if (g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_TIME) {
                     if (lv_obj_is_valid(guider_ui.screen_label_4))
                         lv_label_set_text_fmt(guider_ui.screen_label_4, "%02d:%02d:%02d", 
-                            g_ui_data.time.hour, g_ui_data.time.min, g_ui_data.time.sec);
+                            g_ui_data[g_current_active_user_id].time.hour, g_ui_data[g_current_active_user_id].time.min, g_ui_data[g_current_active_user_id].time.sec);
                     if (lv_obj_is_valid(guider_ui.screen_label_3))
                         lv_label_set_text_fmt(guider_ui.screen_label_3, "%04d/%02d/%02d",
-                             g_ui_data.time.year, g_ui_data.time.month, g_ui_data.time.day);
+                             g_ui_data[g_current_active_user_id].time.year, g_ui_data[g_current_active_user_id].time.month, g_ui_data[g_current_active_user_id].time.day);
                 }
 
 
                 // 6. 刷新漏服记录 — index0=最新，显示4行，第一行最新
-                if (g_ui_data.update_flags & UI_FLAG_RECORDS) {
+                if (g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_RECORDS) {
                     lv_obj_t* labels[] = {
                         guider_ui.screen_2_label_2, // 第一行 — 最新记录 (index 0)
                         guider_ui.screen_2_label_4, // 第二行 — 次新 (index 1)
@@ -318,11 +319,11 @@ void sensor_lcd_task(void *pvParameters)
                     };
                     for(int i = 0; i < 4; i++) {
                         if(lv_obj_is_valid(labels[i])) {
-                            if(i < g_ui_data.record_count) {
+                            if(i < g_ui_data[g_current_active_user_id].record_count) {
                                 lv_label_set_text_fmt(labels[i], "no:%lu time:%s turn:%s",
-                                    (unsigned long)g_ui_data.missed_records[i].id,
-                                    g_ui_data.missed_records[i].date,
-                                    g_ui_data.missed_records[i].time);
+                                    (unsigned long)g_ui_data[g_current_active_user_id].missed_records[i].id,
+                                    g_ui_data[g_current_active_user_id].missed_records[i].date,
+                                    g_ui_data[g_current_active_user_id].missed_records[i].time);
                                
                             } else {
                                 lv_label_set_text(labels[i], ""); // 无数据则空白
@@ -331,43 +332,43 @@ void sensor_lcd_task(void *pvParameters)
                     }
                 }
                 
-                if(g_ui_data.update_flags & UI_FLAG_SCHEDULE) {
+                if(g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_SCHEDULE) {
                     if(lv_obj_is_valid(guider_ui.screen_4_label_2))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_2, "Time: %02d:%02d", 
-                            g_ui_data.meds_schedule[0].hour, g_ui_data.meds_schedule[0].min);
+                            g_ui_data[g_current_active_user_id].meds_schedule[0].hour, g_ui_data[g_current_active_user_id].meds_schedule[0].min);
                     
                     if(lv_obj_is_valid(guider_ui.screen_4_label_20))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_20, "Time: %02d:%02d", 
-                            g_ui_data.meds_schedule[1].hour, g_ui_data.meds_schedule[1].min);
+                            g_ui_data[g_current_active_user_id].meds_schedule[1].hour, g_ui_data[g_current_active_user_id].meds_schedule[1].min);
                     
                     if(lv_obj_is_valid(guider_ui.screen_4_label_23))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_23, "Time: %02d:%02d", 
-                            g_ui_data.meds_schedule[2].hour, g_ui_data.meds_schedule[2].min);
+                            g_ui_data[g_current_active_user_id].meds_schedule[2].hour, g_ui_data[g_current_active_user_id].meds_schedule[2].min);
 
 
                     /* 3. 同步下拉框选中状态 */
                     if(lv_obj_is_valid(guider_ui.screen_4_ddlist_4)) {
-                        uint16_t sel = (g_ui_data.meds_schedule[0].pill_count > 0) ? (g_ui_data.meds_schedule[0].pill_count - 1) : 0;
+                        uint16_t sel = (g_ui_data[g_current_active_user_id].meds_schedule[0].pill_count > 0) ? (g_ui_data[g_current_active_user_id].meds_schedule[0].pill_count - 1) : 0;
                         lv_dropdown_set_selected(guider_ui.screen_4_ddlist_4, sel);
                     }
                     if(lv_obj_is_valid(guider_ui.screen_4_ddlist_2)) {
-                        uint16_t sel = (g_ui_data.meds_schedule[1].pill_count > 0) ? (g_ui_data.meds_schedule[1].pill_count - 1) : 0;
+                        uint16_t sel = (g_ui_data[g_current_active_user_id].meds_schedule[1].pill_count > 0) ? (g_ui_data[g_current_active_user_id].meds_schedule[1].pill_count - 1) : 0;
                         lv_dropdown_set_selected(guider_ui.screen_4_ddlist_2, sel);
                     }
                     if(lv_obj_is_valid(guider_ui.screen_4_ddlist_3)) {
-                        uint16_t sel = (g_ui_data.meds_schedule[2].pill_count > 0) ? (g_ui_data.meds_schedule[2].pill_count - 1) : 0;
+                        uint16_t sel = (g_ui_data[g_current_active_user_id].meds_schedule[2].pill_count > 0) ? (g_ui_data[g_current_active_user_id].meds_schedule[2].pill_count - 1) : 0;
                         lv_dropdown_set_selected(guider_ui.screen_4_ddlist_3, sel);
                     }
                 }
 
                 /*检查是否到吃药时间刷新*/
-                if(g_ui_data.update_flags & UI_FLAG_MED_STATUS) 
+                if(g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_MED_STATUS) 
                 {
-                if(g_ui_data.screen_3_update_step==true)
+                if(g_ui_data[g_current_active_user_id].screen_3_update_step==true)
                 {
                 // 5. 刷新吃药状态按钮 (控制 Screen 3 上的按键显示)
                 if (lv_obj_is_valid(guider_ui.screen_3_btn_med1)) {
-                    if (g_ui_data.med_status[0] == 1) { // 已经吃药
+                    if (g_ui_data[g_current_active_user_id].med_status[0] == 1) { // 已经吃药
                         if (lv_obj_is_valid(guider_ui.screen_3_btn_med1_label)) 
                             lv_label_set_text(guider_ui.screen_3_btn_med1_label, "已服");
                         lv_obj_add_state(guider_ui.screen_3_btn_med1, LV_STATE_DISABLED); // 禁用按钮
@@ -379,7 +380,7 @@ void sensor_lcd_task(void *pvParameters)
                 }
                 
                 if (lv_obj_is_valid(guider_ui.screen_3_btn_med2)) {
-                    if (g_ui_data.med_status[1] == 1) {
+                    if (g_ui_data[g_current_active_user_id].med_status[1] == 1) {
                         if (lv_obj_is_valid(guider_ui.screen_3_btn_med2_label)) 
                             lv_label_set_text(guider_ui.screen_3_btn_med2_label, "已服");
                         lv_obj_add_state(guider_ui.screen_3_btn_med2, LV_STATE_DISABLED);
@@ -391,7 +392,7 @@ void sensor_lcd_task(void *pvParameters)
                 }
 
                 if (lv_obj_is_valid(guider_ui.screen_3_btn_med3)) {
-                    if (g_ui_data.med_status[2] == 1) {
+                    if (g_ui_data[g_current_active_user_id].med_status[2] == 1) {
                         if (lv_obj_is_valid(guider_ui.screen_3_btn_med3_label)) 
                             lv_label_set_text(guider_ui.screen_3_btn_med3_label, "已服");
                         lv_obj_add_state(guider_ui.screen_3_btn_med3, LV_STATE_DISABLED);
@@ -402,7 +403,7 @@ void sensor_lcd_task(void *pvParameters)
                     }
                 }
             }
-            else if(g_ui_data.screen_3_update_step==false)
+            else if(g_ui_data[g_current_active_user_id].screen_3_update_step==false)
             {
                 if (lv_obj_is_valid(guider_ui.screen_3_label_1)){
                lv_label_set_text(guider_ui.screen_3_label_1, "不在用药时间"); 
@@ -410,7 +411,7 @@ void sensor_lcd_task(void *pvParameters)
             }
         }
                  // 刷新完成后，清除更新标志
-                g_ui_data.update_flags = 0; 
+                g_ui_data[g_current_active_user_id].update_flags = 0; 
                 xSemaphoreGive(xGuiMutex);
             }
         }
@@ -557,8 +558,8 @@ void usart_task(void *pvParameters)
                     is_first_sync = 0;
 
                     // 立即更新 LCD 显示的时间
-                    BSP_RTC_GetDateTime(&g_ui_data.time);
-                    g_ui_data.update_flags |= UI_FLAG_TIME;
+                    BSP_RTC_GetDateTime(&g_ui_data[g_current_active_user_id].time);
+                    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_TIME;
                     
                     printf("[Time Sync] RTC & LCD display calibrated successfully!\n");
                 }
@@ -603,24 +604,24 @@ void usart_task(void *pvParameters)
                 if(rx_packet.payload[0] == 0x32) {
                     // 接收到心跳包，说明模块在线，更新 WiFi 状态和最后收到状态的时间戳
                     last_wifi_tick = xTaskGetTickCount();
-                    g_ui_data.wifi_status = 'T'; // 'T' 表示 WiFi 已连接
+                    g_ui_data[g_current_active_user_id].wifi_status = 'T'; // 'T' 表示 WiFi 已连接
                 } else {
-                    g_ui_data.wifi_status = 'F'; // 'F' 表示 WiFi 断开
+                    g_ui_data[g_current_active_user_id].wifi_status = 'F'; // 'F' 表示 WiFi 断开
                 }
-                g_ui_data.update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
+                g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
        // ==========================================
         // 3. 独立的心跳超时检测逻辑 (放在接收 if 块的外面)
         // ==========================================
         /* 串口 20s 内没有接收到任何数据时，把 wifi_status 设置为 'F' */
-        if(g_ui_data.wifi_status == 'T') 
+        if(g_ui_data[g_current_active_user_id].wifi_status == 'T') 
         {
             if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(20200)) 
             {
                 APP_LOG("[WiFi] No status update received for 20s, setting status to 'F'\n");
-                g_ui_data.wifi_status = 'F';
-                g_ui_data.update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
+                g_ui_data[g_current_active_user_id].wifi_status = 'F';
+                g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
 
@@ -699,29 +700,29 @@ void check_medication_time(void) {
         // 核心判断：如果今天还没有为这顿药重置过状态，才执行重置和存 Flash
         if (last_reset_day != current_time.day || last_reset_med_idx != active_med_idx) {
             
-            g_ui_data.meds_completed[0] = 0;
-            g_ui_data.meds_completed[1] = 0;
-            g_ui_data.meds_completed[2] = 0;
+            g_ui_data[g_current_active_user_id].meds_completed[0] = 0;
+            g_ui_data[g_current_active_user_id].meds_completed[1] = 0;
+            g_ui_data[g_current_active_user_id].meds_completed[2] = 0;
 
-            g_ui_data.med_status[0] = 0;
-            g_ui_data.med_status[1] = 0;    
-            g_ui_data.med_status[2] = 0;    
+            g_ui_data[g_current_active_user_id].med_status[0] = 0;
+            g_ui_data[g_current_active_user_id].med_status[1] = 0;    
+            g_ui_data[g_current_active_user_id].med_status[2] = 0;    
             
             /*并保存到Flash*/
-            SystemData_Save_To_Flash();
+            SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
             
             // 更新记录，打上“已处理”的标签
             last_reset_med_idx = active_med_idx;
             last_reset_day = current_time.day;
 
-             g_ui_data.screen_3_update_step = true;  
+             g_ui_data[g_current_active_user_id].screen_3_update_step = true;  
             tw_pkt.id = CMD_TX_TIME_TO_EAT; 
         }
 
         // 下面这些 UI 刷新和语音指令，依然每次都执行，保证在这 3 分钟内屏幕一直停留在吃药界面
        
     } else {
-        g_ui_data.screen_3_update_step = false;  
+        g_ui_data[g_current_active_user_id].screen_3_update_step = false;  
     }
     
     // 统一发送一次队列消息

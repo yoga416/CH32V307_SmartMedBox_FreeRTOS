@@ -14,12 +14,12 @@
 #include "events_init.h"
 #include "widgets_init.h"
 #include "custom.h"
-
+#include "app_task.h" // 包含全局数据结构和函数声明
 // 声明外部检测函数：由其他文件提供
 extern bool check_medication_time(void);
-extern UI_DisplayData_t g_ui_data;
-extern void SystemData_Save_To_Flash(void);
-
+extern UI_DisplayData_t g_ui_data[MAX_USER];
+extern void SystemData_Save_To_Flash_ByUser(uint8_t user_idx);
+extern uint8_t g_current_active_user_id; // 当前活跃用户ID
 // “吃药”按钮的点击事件回调函数
 static void btn_take_med_event_cb(lv_event_t * e)
 {
@@ -34,22 +34,22 @@ static void btn_take_med_event_cb(lv_event_t * e)
         }
         // 获取触发按钮的指针，并更新对应的状态
     if (btn == guider_ui.screen_3_btn_med1) {
-       g_ui_data.med_status[0] = true; // 记录药品一已服用
+       g_ui_data[g_current_active_user_id].med_status[0] = true; // 记录药品一已服用
     } else if (btn == guider_ui.screen_3_btn_med2) {
-        g_ui_data.med_status[1] = true; // 记录药品二已服用
+        g_ui_data[g_current_active_user_id].med_status[1] = true; // 记录药品二已服用
     } else if (btn == guider_ui.screen_3_btn_med3) {
-        g_ui_data.med_status[2] = true; // 记录药品三已服用
+        g_ui_data[g_current_active_user_id].med_status[2] = true; // 记录药品三已服用
     }
-    if(g_ui_data.med_status[0]==1 && g_ui_data.med_status[1]==1 && g_ui_data.med_status[2]==1) {
-        g_ui_data.meds_completed[index] = 1; // 标记当前时间段的吃药完成
+    if(g_ui_data[g_current_active_user_id].med_status[0]==1 && g_ui_data[g_current_active_user_id].med_status[1]==1 && g_ui_data[g_current_active_user_id].med_status[2]==1) {
+        g_ui_data[g_current_active_user_id].meds_completed[index] = 1; // 标记当前时间段的吃药完成
         index++; // 准备下一个时间段的记录
         if(index >= 3) index = 0; // 循环使用 meds_completed 数组
     }
         // 禁用该按钮，防止重复点击
         lv_obj_add_state(btn, LV_STATE_DISABLED); 
-    g_ui_data.update_flags |= UI_FLAG_MED_STATUS; // 触发 UI 刷新
+    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_MED_STATUS; // 触发 UI 刷新
     /*保存状态*/
-   SystemData_Save_To_Flash();
+   SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
     }
 }
 
@@ -83,7 +83,7 @@ void setup_scr_screen_3(lv_ui *ui)
     lv_obj_set_style_shadow_width(ui->screen_3_cont_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     // ================== 核心逻辑：界面内容分发 ==================
-    if (g_ui_data.screen_3_update_step==true) {
+    if (g_ui_data[g_current_active_user_id].screen_3_update_step==true) {
         /*
          * 状态一：已到吃药时间
          * 动态生成药品一、药品二、药品三的提示文本及对应确认按钮
@@ -102,10 +102,10 @@ void setup_scr_screen_3(lv_ui *ui)
         lv_obj_set_style_text_font(btn_med1_label, &lv_font_SourceHanSerifSC_Regular_20, 0);
         lv_obj_center(btn_med1_label);
         // 根据 g_med_status 设置初始状态
-        if (g_ui_data.med_status[0]==true) {
+        if (g_ui_data[g_current_active_user_id].med_status[0]==true) {
             lv_label_set_text(btn_med1_label, "记录");
             lv_obj_add_state(btn_med1, LV_STATE_DISABLED);
-        } if(g_ui_data.med_status[0]==false) {
+        } if(g_ui_data[g_current_active_user_id].med_status[0]==false) {
             lv_label_set_text(btn_med1_label, "吃药");
         }
         lv_obj_add_event_cb(btn_med1, btn_take_med_event_cb, LV_EVENT_CLICKED, NULL);
@@ -123,11 +123,11 @@ void setup_scr_screen_3(lv_ui *ui)
         lv_obj_t * btn_med2_label = lv_label_create(btn_med2);
         lv_obj_set_style_text_font(btn_med2_label, &lv_font_SourceHanSerifSC_Regular_20, 0);
         lv_obj_center(btn_med2_label);
-        // 根据 g_ui_data.med_status 设置初始状态
-        if (g_ui_data.med_status[1]==true) {
+        // 根据 g_ui_data[g_current_active_user_id].med_status 设置初始状态
+        if (g_ui_data[g_current_active_user_id].med_status[1]==true) {
             lv_label_set_text(btn_med2_label, "记录");
             lv_obj_add_state(btn_med2, LV_STATE_DISABLED);
-        } if(g_ui_data.med_status[1]==false) {
+        } if(g_ui_data[g_current_active_user_id].med_status[1]==false) {
             lv_label_set_text(btn_med2_label, "吃药");
         }
         lv_obj_add_event_cb(btn_med2, btn_take_med_event_cb, LV_EVENT_CLICKED, NULL);
@@ -145,17 +145,17 @@ void setup_scr_screen_3(lv_ui *ui)
         lv_obj_t * btn_med3_label = lv_label_create(btn_med3);
         lv_obj_set_style_text_font(btn_med3_label, &lv_font_SourceHanSerifSC_Regular_20, 0);
         lv_obj_center(btn_med3_label);
-        // 根据 g_ui_data.med_status 设置初始状态
-        if (g_ui_data.med_status[2]==true) {
+        // 根据 g_ui_data[g_current_active_user_id].med_status 设置初始状态
+        if (g_ui_data[g_current_active_user_id].med_status[2]==true) {
             lv_label_set_text(btn_med3_label, "记录");
             lv_obj_add_state(btn_med3, LV_STATE_DISABLED);
-        } if(g_ui_data.med_status[2]==false) {
+        } if(g_ui_data[g_current_active_user_id].med_status[2]==false) {
             lv_label_set_text(btn_med3_label, "吃药");
         }
         lv_obj_add_event_cb(btn_med3, btn_take_med_event_cb, LV_EVENT_CLICKED, NULL);
         ui->screen_3_btn_med3 = btn_med3; // 【修复】保存指针到 guider_ui
 
-    } else if(g_ui_data.screen_3_update_step==false) {
+    } else if(g_ui_data[g_current_active_user_id].screen_3_update_step==false) {
         /*
          * 状态二：未到吃药时间
          * 仅显示文本提示

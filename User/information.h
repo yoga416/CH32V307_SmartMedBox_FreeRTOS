@@ -7,8 +7,8 @@
 #include "bsp_rtc.h"
 #include "lvgl.h"
 #define MAX_SCHE 3
-#define MAX_HISTORY 10  // 历史记录最大保存次数
-
+#define MAX_HISTORY 10      // 历史记录最大保存次数
+#define MAX_USER  3        // 最大用户数量
 // ==========================================
 // 刷新标志位 (Dirty Flags)
 // ==========================================
@@ -103,7 +103,8 @@ typedef struct {
                       
 } UI_DisplayData_t;
 
-extern UI_DisplayData_t g_ui_data;
+extern UI_DisplayData_t g_ui_data[MAX_USER];
+extern uint8_t g_current_active_user_id; // 记录当前操作的用户 ID
 // ==========================================
 // 接口函数声明
 // =========================================
@@ -114,7 +115,7 @@ extern UI_DisplayData_t g_ui_data;
 void SystemData_Init_Load(void);
 
 /*保存数据到Flash*/
-void SystemData_Save_To_Flash(void);
+void SystemData_Save_To_Flash_ByUser(uint8_t user_idx);
 
 /*追加漏服记录*/
 void Add_Missed_Record(uint32_t new_id, const char *new_date, const char *new_time);

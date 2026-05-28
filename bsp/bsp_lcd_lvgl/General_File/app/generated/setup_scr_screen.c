@@ -170,7 +170,7 @@ void setup_scr_screen(lv_ui *ui)
 
     //Write codes screen_label_7
     ui->screen_label_7 = lv_label_create(ui->screen_cont_1);
-    lv_label_set_text(ui->screen_label_7, "-- °C");
+    lv_label_set_text(ui->screen_label_7, "0.00 °C");// 温度显示
     lv_label_set_long_mode(ui->screen_label_7, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_label_7, 34, 383);
     lv_obj_set_size(ui->screen_label_7, 100, 32);
@@ -193,7 +193,7 @@ void setup_scr_screen(lv_ui *ui)
 
     //Write codes screen_label_8
     ui->screen_label_8 = lv_label_create(ui->screen_cont_1);
-    lv_label_set_text(ui->screen_label_8, "-- %");
+    lv_label_set_text(ui->screen_label_8, "0.00 %");// 湿度显示
     lv_label_set_long_mode(ui->screen_label_8, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_label_8, 187, 383);
     lv_obj_set_size(ui->screen_label_8, 100, 32);
