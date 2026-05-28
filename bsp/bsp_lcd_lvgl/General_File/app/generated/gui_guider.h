@@ -44,7 +44,9 @@ typedef struct
 	lv_obj_t *screen_1_btn_3_label;
 	lv_obj_t *screen_1_btn_4;//返回主页面（按键）
 	lv_obj_t *screen_1_btn_4_label;//屏幕1标签
+	lv_obj_t *screen_label_user;//用户信息显示标签
 
+	
 	lv_obj_t *screen_2;//屏幕2
 	bool screen_2_del;//屏幕2删除标志
 	lv_obj_t *screen_2_cont_1;//屏幕2容器

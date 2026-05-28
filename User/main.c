@@ -21,7 +21,7 @@
 
 #include "app_task.h"
 #include "ch32v30x_iwdg.h"
-
+#include "bsp_rtc.h"
 
 /* watchdog task handle (defined in app_task.c) */
 extern TaskHandle_t watchdogTask_Handler;
@@ -52,7 +52,7 @@ int main(void)
     SystemCoreClockUpdate();
     Delay_Init();
     USART_Printf_Init(115200);
-
+    Test_Key_Init(); // 初始化测试按键
 
      /* 创建互斥锁和队列 */
     // cm_backtrace_init("CmBackTrace", HARDWARE_VERSION, SOFTWARE_VERSION);

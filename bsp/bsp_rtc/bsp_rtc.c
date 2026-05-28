@@ -191,3 +191,40 @@ void BSP_RTC_ModifyTime(uint16_t year, uint16_t month, uint16_t day, uint16_t ho
     // 否则闹钟会错乱或者根本不响
     BSP_RTC_UpdateNextAlarm();
 }
+
+#if 1
+/**
+ * @brief  PD13 简单按键初始化
+ */
+void Test_Key_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStructure = {0};
+    EXTI_InitTypeDef EXTI_InitStructure = {0};
+    NVIC_InitTypeDef NVIC_InitStructure = {0};
+
+    // 1. 开启 GPIOD 和 AFIO 时钟
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD | RCC_APB2Periph_AFIO, ENABLE);
+
+    // 2. 配置 PD13 为上拉输入
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+    GPIO_Init(GPIOD, &GPIO_InitStructure);
+
+    // 3. 映射到 EXTI 13
+    GPIO_EXTILineConfig(GPIO_PortSourceGPIOD, GPIO_PinSource13);
+
+    // 4. 配置中断线 13 下降沿触发
+    EXTI_InitStructure.EXTI_Line = EXTI_Line13;
+    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+    EXTI_Init(&EXTI_InitStructure);
+
+    // 5. 配置中断优先级（测试用，直接设为较高优先级）
+    NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 2; // 无 RTOS API 时可以设低数值
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+}
+#endif

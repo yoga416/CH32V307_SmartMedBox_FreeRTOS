@@ -20,5 +20,6 @@ void BSP_RTC_SetDateTime(RTC_TimeTypeDef* time); // 设置时间
 void BSP_RTC_GetDateTime(RTC_TimeTypeDef* time); // 获取时间
 void BSP_RTC_UpdateNextAlarm(void); // 更新下一个闹钟时间
 void BSP_RTC_ModifyTime(uint16_t year, uint16_t month, uint16_t day, uint16_t hour, uint16_t min, uint16_t sec) ; // 修改时间（如果需要单独调用）
+void Test_Key_Init(void); // 测试按键初始化
 #endif
 

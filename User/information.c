@@ -24,13 +24,16 @@ void SystemData_Init_Load(void)
 {
     UI_DisplayData_t temp_data;
     
+    // 【关键控制】开机结束后，默认当前屏幕操作 0 号用户
+    g_current_active_user_id = 0; 
+
     // 循环遍历加载所有用户的数据，实现真正的数据隔离初始化
     for (uint8_t uid = 0; uid < MAX_USER; uid++)
     {
         bool found = false;
         current_flash_offset[uid] = 0;
 
-        // 1. 先将当前用户内存结构体初始化为默认值
+        // 1. 修复：使用 uid 隔离初始化对应用户的内存空间
         memset(&g_ui_data[uid], 0, sizeof(UI_DisplayData_t));
         g_ui_data[uid].magic_num = 0x55AA;
         g_ui_data[uid].wifi_status = 'F'; // 开机默认显示断开 'F'
@@ -41,7 +44,6 @@ void SystemData_Init_Load(void)
         // 2. 步进扫描该用户的整个 4KB 扇区，寻找最后一次滚动写入的有效数据
         for (uint32_t offset = 0; offset + sizeof(UI_DisplayData_t) <= SECTOR_SIZE; offset += sizeof(UI_DisplayData_t)) 
         {
-            // 注意：这里统一换成你原本的 W25Q_ReadData 驱动函数
             W25Q_ReadData(user_base_addr + offset, (uint8_t *)&temp_data, sizeof(UI_DisplayData_t));
             
             /* 检测魔术字，如果遇到 0xFFFF 说明后面全是空白片，直接退出扫描 */
@@ -51,12 +53,13 @@ void SystemData_Init_Load(void)
             
             /* 如果匹配到有效魔术字，说明找到了一个历史写入点，暂存并继续往后找最新的 */
             if (temp_data.magic_num == 0x55AA) {
+                // 修复：拷贝给当前遍历的 uid，而不是固定的 g_current_active_user_id
                 memcpy(&g_ui_data[uid], &temp_data, sizeof(UI_DisplayData_t));
                 
                 // WiFi 状态是动态的，不从 Flash 恢复
                 g_ui_data[uid].wifi_status = 'F'; 
                 
-                // 记住当前的偏移量
+                // 记住该用户当前的滚动偏移量
                 current_flash_offset[uid] = offset;
                 found = true;
             }
@@ -73,10 +76,12 @@ void SystemData_Init_Load(void)
             g_ui_data[uid].magic_num = 0x55AA;
             g_ui_data[uid].wifi_status = 'F';
             
-            // 赋予出厂默认吃药数量
-            g_ui_data[uid].meds_schedule[0].pill_count = 1;
-            g_ui_data[uid].meds_schedule[1].pill_count = 1;
-            g_ui_data[uid].meds_schedule[2].pill_count = 1;
+            // 只有空片时，才引入系统默认吃药时间计划和默认数量
+            for (int i = 0; i < MAX_SCHE; i++) {
+                g_ui_data[uid].meds_schedule[i].hour = my_meds[i].hour;
+                g_ui_data[uid].meds_schedule[i].min  = my_meds[i].min;
+                g_ui_data[uid].meds_schedule[i].pill_count = 1;
+            }
 
             // 擦除该用户独立的 4KB 扇区并写入初始数据
             W25Q_SectorErase(user_base_addr);
@@ -84,17 +89,15 @@ void SystemData_Init_Load(void)
             current_flash_offset[uid] = 0;
         }
         
-        // 4. 用本地的时间计划变量（my_meds）覆盖或初始化该用户的 meds_schedule
-        // 注：多用户环境下，如果每个人时间不同，后续可在云端接入或设置界面中让 g_ui_data[uid] 独立保存，
-        // 目前初始化阶段先用默认的全局时间对齐：
-        for (int i = 0; i < MAX_SCHE; i++) { 
-            g_ui_data[uid].meds_schedule[i].hour = my_meds[i].hour;
-            g_ui_data[uid].meds_schedule[i].min  = my_meds[i].min;
-        }
+        // 4. 【重要逻辑调整】：不再用单组 my_meds 强行覆盖已经读出来的、属于不同用户的独立时间！
+        // 如果需要让任务层知道当前选中的 0 号用户的时间，可以在循环外单独对齐：
 
-        // 5. 开机强制刷新该用户对应的整个 UI 标志位
+        // 开机强制刷新该用户对应的整个 UI 标志位
         g_ui_data[uid].update_flags = 0xFFFFFFFF; 
     }
+
+    // 5. 循环结束后，为后台业务逻辑变量 my_meds 动态赋予当前默认活跃用户（0号用户）的时间
+    memcpy(my_meds, g_ui_data[g_current_active_user_id].meds_schedule, sizeof(my_meds));
 }
 
 /**

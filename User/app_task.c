@@ -123,6 +123,7 @@ void app_task(void *pvParameters)
                     APP_LOG("[App] Event: Face recognition Success\n");
                     tianwen_packet.id = CMD_TX_REGISTERED_USER; 
                     xQueueSend(sendtianwenQueue, &tianwen_packet, 0); 
+
                     break;
 
                 case MSG_FACE_RECOG_FAIL:// 人脸识别失败事件
@@ -410,6 +411,20 @@ void sensor_lcd_task(void *pvParameters)
                 }
             }
         }
+
+        /*刷新用户显示*/
+        // 🌟【联动新增】：让屏幕上的用户标签实时刷新汉字
+        if (guider_ui.screen_label_user != NULL) 
+            {
+                if (g_current_active_user_id == 0) {
+                
+                 lv_label_set_text(guider_ui.screen_label_user, "不");
+            } else if (g_current_active_user_id == 1) {
+                lv_label_set_text(guider_ui.screen_label_user, "用");
+            } else if (g_current_active_user_id == 2) {
+                lv_label_set_text(guider_ui.screen_label_user, "在");
+                    }
+            }
                  // 刷新完成后，清除更新标志
                 g_ui_data[g_current_active_user_id].update_flags = 0; 
                 xSemaphoreGive(xGuiMutex);

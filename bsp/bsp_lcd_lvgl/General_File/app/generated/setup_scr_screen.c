@@ -15,7 +15,6 @@
 #include "custom.h"
 
 
-
 void setup_scr_screen(lv_ui *ui)
 {
     //Write codes screen
@@ -263,7 +262,37 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_shadow_width(ui->screen_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //The custom code of screen.
+//Write codes screen_label_user (新增：当前用户显示标签)
+    ui->screen_label_user = lv_label_create(ui->screen_cont_1);
+    
+    // 默认显示文字，根据全局控制变量动态判定
+    if (g_current_active_user_id == 0) {
+        lv_label_set_text(ui->screen_label_user, "0");
+    } else if (g_current_active_user_id == 1) {
+        lv_label_set_text(ui->screen_label_user, "1");
+    } else {
+        lv_label_set_text(ui->screen_label_user, "2");
+    }
+    
+    lv_label_set_long_mode(ui->screen_label_user, LV_LABEL_LONG_WRAP);
+    
+    // 【位置坐标调整】放置在屏幕中上部空闲区域（X: 16, Y: 130，你可以根据实际观感微调）
+    lv_obj_set_pos(ui->screen_label_user, 16, 130);
+    lv_obj_set_size(ui->screen_label_user, 280, 35);
 
+    //设置样式，使其与日期的深蓝色主题块（0x104775）对齐，文字为白色
+    lv_obj_set_style_border_width(ui->screen_label_user, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_label_user, 4, LV_PART_MAIN|LV_STATE_DEFAULT); // 加一点圆角
+    lv_obj_set_style_text_color(ui->screen_label_user, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    
+    // ⚠️ 注意：如果你的字库没有包含“当前用户爷爷奶奶”等汉字，请使用支持中文的 &lv_font_SourceHanSerifSC_Regular_20
+    lv_obj_set_style_text_font(ui->screen_label_user, &lv_font_SourceHanSerifSC_Regular_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+    lv_obj_set_style_text_opa(ui->screen_label_user, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_label_user, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui->screen_label_user, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui->screen_label_user, lv_color_hex(0x104775), LV_PART_MAIN|LV_STATE_DEFAULT); // 经典深蓝底色
+    lv_obj_set_style_pad_top(ui->screen_label_user, 6, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //Update current screen layout.
     lv_obj_update_layout(ui->screen);

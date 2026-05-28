@@ -271,3 +271,30 @@ void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
     while(1);
 }
     
+/**
+ * @brief  PD13 中断服务函数（极简测试版）
+ */
+void EXTI15_10_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
+
+void EXTI15_10_IRQHandler(void)
+{
+    if (EXTI_GetITStatus(EXTI_Line13) != RESET)
+    {
+        // 简易延时消抖（仅限测试，正式项目严禁在中断内延时）
+        for(volatile uint32_t i=0; i<80000; i++); 
+        
+        if (GPIO_ReadInputDataBit(GPIOD, GPIO_Pin_13) == 0)
+        {
+            // 1. 切换用户 (假设 MAX_USER 为 3，支持 0, 1, 2 循环)
+            g_current_active_user_id = (g_current_active_user_id + 1) % 3;
+            
+            // 2. 串口打印当前活跃用户，方便观察
+            APP_LOG("\r\n[Key Action] >>> User Changed to: [User %d] <<<\r\n", g_current_active_user_id);
+            
+            // 3. 测试自动保存：切完人立刻把当前人的配置写进他独立的 Flash 扇区
+            SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
+        }
+        
+        EXTI_ClearITPendingBit(EXTI_Line13);
+    }
+}
