@@ -77,6 +77,7 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
  extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
  UI_DisplayData_t g_ui_data; // 全局 UI 数据结构实例
 
+ static TickType_t last_check_mechine_time = 0;
 void check_medication_time(void); // 声明检查吃药时间的函数
 
 void app_task(void *pvParameters)
@@ -93,7 +94,7 @@ void app_task(void *pvParameters)
     xQueueSend(sendtianwenQueue, &tianwen_packet, portMAX_DELAY); // 确保开机播报命令一定能发送出去
 
     //设置时间：
-    BSP_RTC_ModifyTime(2026, 5, 20, 23, 59, 50); // 设置初始时间为2026年3月2日23:59:00
+    BSP_RTC_ModifyTime(current_time_virvual[0], current_time_virvual[1], current_time_virvual[2], current_time_virvual[3], current_time_virvual[4], current_time_virvual[5]); // 设置初始时间为2026年3月2日23:59:00
     //设置闹钟(已经设置就生效，所以放在主循环前面)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
@@ -151,9 +152,6 @@ void app_task(void *pvParameters)
         if (watchdogTask_Handler != NULL) {
             xTaskNotifyGive(watchdogTask_Handler);
         }
-
-
-    
         vTaskDelay(pdMS_TO_TICKS(20)); // 每20ms检查一次事件队列和喂一次狗
     }
 }
@@ -242,10 +240,10 @@ void sensor_lcd_task(void *pvParameters)
             g_ui_data.update_flags |= UI_FLAG_TIME;
         }
 
-         /*检查是否是新的一天，清除med_status*/
-        if(g_ui_data.time.hour == 0 && g_ui_data.time.min == 0 && g_ui_data.time.sec < 5) {
-            memset(g_ui_data.med_status, 0, sizeof(g_ui_data.med_status));
-        }
+        //  /*检查是否是新的一天，清除med_status*/
+        // if(g_ui_data.time.hour == 0 && g_ui_data.time.min == 0 && g_ui_data.time.sec < 5) {
+        //     memset(g_ui_data.med_status, 0, sizeof(g_ui_data.med_status));
+        // }
         // ==========================================
         // 第二部分：统一执行 LVGL UI 渲染 (显示数组中最新的数据)
         // ==========================================
@@ -416,6 +414,15 @@ void sensor_lcd_task(void *pvParameters)
                 xSemaphoreGive(xGuiMutex);
             }
         }
+
+        /*检查是否到吃药时间刷新*/
+        /*每10秒检查一次*/
+       // 每 10 秒无阻塞触发一次药盒检查
+        if (xTaskGetTickCount() - last_check_mechine_time >= pdMS_TO_TICKS(10000)) {
+            check_medication_time();
+            last_check_mechine_time = xTaskGetTickCount(); // 更新上一次检查的时间
+        }
+
         vTaskDelay(pdMS_TO_TICKS(50));
     }   
 }
@@ -652,44 +659,69 @@ void watchdog_task(void *pvParameters)
     }
 
 }
-
-/*规定时间为前后10分钟*/
+/*规定时间为前后10分钟*/ // 注：代码里写的是 +/- 1分钟
 void check_medication_time(void) {
     RTC_TimeTypeDef current_time;
     BSP_RTC_GetDateTime(&current_time);
     
     int16_t curr_total_mins = current_time.hour * 60 + current_time.min;
     
-    APP_LOG("[Check Med Time] Current time: %02d:%02d\n", current_time.hour, current_time.min);
-    
     Tianwen_Packet_t tw_pkt;
     tw_pkt.data_len = 0;
     
-    uint8_t is_time_to_eat = 0; // 核心：定义一个标志位，0代表没到时间，1代表到时间了
+    uint8_t is_time_to_eat = 0; 
+    int8_t active_med_idx = -1; // 新增：记录当前是哪一顿药触发了时间
+    
+    //APP_LOG("[App] Checking medication time... Current time: %02d:%02d\n", current_time.hour, current_time.min);
     
     // 遍历检查设定的3个吃药时间
     for (int i = 0; i < MAX_SCHE; i++) {
         int16_t target_total_mins = my_meds[i].hour * 60 + my_meds[i].min;
         int16_t diff_mins = curr_total_mins - target_total_mins;
         
-        // 处理跨天的情况 (如设定23:55，当前00:05)
+        // 处理跨天的情况
         if (diff_mins > 12 * 60) diff_mins -= 24 * 60;
         else if (diff_mins < -12 * 60) diff_mins += 24 * 60;
         
-        // 只要查到有一顿药在 +/-10 分钟内
-        if (diff_mins >= -10 && diff_mins <= 10) {
-            is_time_to_eat = 1; // 把标志位置为1
-            break; // 找到了就可以直接退出循环了，不用再查后面的药
+        // 只要查到有一顿药在 +/-1 分钟内
+        if (diff_mins >= -1 && diff_mins <= 1) {
+            is_time_to_eat = 1; 
+            active_med_idx = i; // 把当前触发的这顿药的编号记下来
+            break; 
         }
     }
     
-    // 循环结束后，统一根据标志位去更新UI和发送语音指令
     if (is_time_to_eat) {
-        g_ui_data.screen_3_update_step = true;  // 进入吃药确认界面
-        tw_pkt.id = CMD_TX_TIME_TO_EAT; 
+        // 新增：使用静态变量记录上一次重置状态的【日期】和【药品索引】
+        static int8_t last_reset_med_idx = -1;
+        static uint8_t last_reset_day = 0xFF;
+
+        // 核心判断：如果今天还没有为这顿药重置过状态，才执行重置和存 Flash
+        if (last_reset_day != current_time.day || last_reset_med_idx != active_med_idx) {
+            
+            g_ui_data.meds_completed[0] = 0;
+            g_ui_data.meds_completed[1] = 0;
+            g_ui_data.meds_completed[2] = 0;
+
+            g_ui_data.med_status[0] = 0;
+            g_ui_data.med_status[1] = 0;    
+            g_ui_data.med_status[2] = 0;    
+            
+            /*并保存到Flash*/
+            SystemData_Save_To_Flash();
+            
+            // 更新记录，打上“已处理”的标签
+            last_reset_med_idx = active_med_idx;
+            last_reset_day = current_time.day;
+
+             g_ui_data.screen_3_update_step = true;  
+            tw_pkt.id = CMD_TX_TIME_TO_EAT; 
+        }
+
+        // 下面这些 UI 刷新和语音指令，依然每次都执行，保证在这 3 分钟内屏幕一直停留在吃药界面
+       
     } else {
-        g_ui_data.screen_3_update_step = false; // 进入未到时间界面
-        tw_pkt.id = CMD_TX_NOT_TIME_TO_EAT; 
+        g_ui_data.screen_3_update_step = false;  
     }
     
     // 统一发送一次队列消息

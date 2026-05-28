@@ -25,7 +25,7 @@ static void btn_take_med_event_cb(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t * btn = lv_event_get_target(e);
-    
+    int index=0;
     if(code == LV_EVENT_CLICKED) {
         // 获取按钮内部的 Label 并修改文字
         lv_obj_t * label = lv_obj_get_child(btn, 0); 
@@ -39,6 +39,11 @@ static void btn_take_med_event_cb(lv_event_t * e)
         g_ui_data.med_status[1] = true; // 记录药品二已服用
     } else if (btn == guider_ui.screen_3_btn_med3) {
         g_ui_data.med_status[2] = true; // 记录药品三已服用
+    }
+    if(g_ui_data.med_status[0]==1 && g_ui_data.med_status[1]==1 && g_ui_data.med_status[2]==1) {
+        g_ui_data.meds_completed[index] = 1; // 标记当前时间段的吃药完成
+        index++; // 准备下一个时间段的记录
+        if(index >= 3) index = 0; // 循环使用 meds_completed 数组
     }
         // 禁用该按钮，防止重复点击
         lv_obj_add_state(btn, LV_STATE_DISABLED); 

@@ -21,7 +21,8 @@
 #define UI_FLAG_SCHEDULE      (1 << 6)
 #define UI_FLAG_MED_STATUS    (1 << 7) // 吃药状态更新
 
-
+/*时间开始*/
+extern uint16_t current_time_virvual[6]; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 
 // ==========================================
 // 数据类型定义
@@ -88,9 +89,11 @@ typedef struct {
     // 5. 用药闹钟配置
     AlarmSche meds_schedule[MAX_SCHE];       
 
-    /*吃药状态*/
+    /*药品状态*/
     uint8_t med_status[3];  // 0:未服用, 1:已服用
 
+    /*一个时间段内是否吃药完成*/
+    uint8_t meds_completed[3]; // 0:未完成, 1:完成
     // 7. 实时状态（不存 Flash 的运行状态）
     RTC_TimeTypeDef time;
 
