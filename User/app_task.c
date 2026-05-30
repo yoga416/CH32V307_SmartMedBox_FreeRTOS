@@ -492,10 +492,35 @@ void sensor_lcd_task(void *pvParameters)
             } 
             }
         }
-                 // 刷新完成后，清除更新标志
-                g_ui_data[uid].update_flags = 0; 
-                xSemaphoreGive(xGuiMutex);
+            //更新城市
+            if(g_ui_data[uid].update_flags & UI_FLAG_CITY)
+            {
+                if (guider_ui.screen_label_city != NULL) 
+                {
+                    lv_label_set_text_fmt(guider_ui.screen_label_city, "City: %s", g_ui_data[uid].city_name);
+                }
             }
+            //更新天气
+            if(g_ui_data[uid].update_flags & UI_FLAG_WEATHER)
+            {
+                if (guider_ui.screen_label_weather_icon != NULL) 
+                {
+                    lv_label_set_text_fmt(guider_ui.screen_label_weather_icon, "weather:%s", g_ui_data[uid].weather);
+                }
+            }
+            //更新温度
+            if(g_ui_data[uid].update_flags & UI_FLAG_TEMPERATURE)
+            {
+                if (guider_ui.screen_label_temperature != NULL) 
+                {
+                    lv_label_set_text_fmt(guider_ui.screen_label_temperature, "temperature:%d°C", g_ui_data[uid].weather_temp);
+                }
+            }
+
+             // 刷新完成后，清除更新标志
+            g_ui_data[uid].update_flags = 0; 
+            xSemaphoreGive(xGuiMutex);
+        }
         }
 
         /*检查是否到吃药时间刷新*/
@@ -650,36 +675,74 @@ void usart_task(void *pvParameters)
                 }
             }
 
+            
             /*位置同步*/
-            if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 8)
-            {
-                char city_name[16]={0};
-                memcpy(city_name, rx_packet.payload, rx_packet.data_len);
-                APP_LOG("\r\n[Location Sync] Received new location: %s\n", city_name);
-                /*保存在w25qxx中*/
-                //W25Q_WriteData(LOCATION_STORAGE_ADDR, (uint8_t*)city_name, 16);
-            }
+if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 8)
+{
+    char city_name[32] = {0};  // 临时缓冲区更大一些
+    
+    // 限制复制长度
+    size_t copy_len = (rx_packet.data_len < sizeof(city_name) - 1) ? 
+                      rx_packet.data_len : sizeof(city_name) - 1;
+    
+    memcpy(city_name, rx_packet.payload, copy_len);
+    city_name[copy_len] = '\0';
+    
+    // 安全复制到全局数据
+    strncpy(g_ui_data[g_current_active_user_id].city_name, city_name, 
+            sizeof(g_ui_data[g_current_active_user_id].city_name) - 1);
+    g_ui_data[g_current_active_user_id].city_name[sizeof(g_ui_data[g_current_active_user_id].city_name) - 1] = '\0';
+    
+    APP_LOG("[Location Sync] City updated to: %s\n", 
+            g_ui_data[g_current_active_user_id].city_name);
+    
+    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_CITY;
+}
 
             /*天气同步*/
-            if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
-            {
-                int8_t weather_code= (int8_t)rx_packet.payload[0]; // 天气代码
-                // 心知天气官方代码参考
-                    switch(weather_code) {
-                            case 0: APP_LOG("weather: clear"); break;
-                            case 4: APP_LOG("weather: cloudy"); break; // 4 对应多云
-                            case 6: APP_LOG("weather: overcast"); break;
-                            case 9: APP_LOG("weather: partly cloudy"); break;
-                            case 10: APP_LOG("weather: shower"); break;
-                            // ... 更多代码
-                            default:  break;
-                            }
-                int8_t temperature = (int8_t)rx_packet.payload[1]; // 温度
-                APP_LOG("\r\n[Weather Sync] Received weather update: Temp=%d°C\n", temperature);
-                /*可以根据天气代码更新 LCD 上的天气图标，温度可以显示在天气图标旁边*/
-                /*保存在w25qxx中*/
-                //W25Q_WriteData(LOCATION_STORAGE_ADDR, (uint8_t*)city_name, 16);
-            }
+if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
+{
+    int8_t weather_code = (int8_t)rx_packet.payload[0]; // 天气代码
+    int8_t temperature = (int8_t)rx_packet.payload[1];   // 温度
+    
+    // 心知天气代码映射（0-37常见值）
+    switch(weather_code) {
+        case 0:  strcpy(g_ui_data[g_current_active_user_id].weather, "Sunny"); break;      // 晴
+        case 1:  strcpy(g_ui_data[g_current_active_user_id].weather, "Clear"); break;      // 晴（夜间）
+        case 2:  strcpy(g_ui_data[g_current_active_user_id].weather, "Fair"); break;       // 少云
+        case 3:  strcpy(g_ui_data[g_current_active_user_id].weather, "Cloudy"); break;     // 多云
+        case 4:  strcpy(g_ui_data[g_current_active_user_id].weather, "Overcast"); break;   // 阴天
+        
+        case 5:  strcpy(g_ui_data[g_current_active_user_id].weather, "Fog"); break;        // 雾
+        case 6:  strcpy(g_ui_data[g_current_active_user_id].weather, "Rain"); break;       // 雨
+        
+        case 7:  strcpy(g_ui_data[g_current_active_user_id].weather, "Snow"); break;       // 雪
+        case 8:  strcpy(g_ui_data[g_current_active_user_id].weather, "Snow"); break;       // 雪
+        case 9:  strcpy(g_ui_data[g_current_active_user_id].weather, "Snow"); break;       // 雪
+        
+        case 10: strcpy(g_ui_data[g_current_active_user_id].weather, "Rain"); break;       // 雨
+        case 11: strcpy(g_ui_data[g_current_active_user_id].weather, "Rain"); break;       // 雨
+        case 12: strcpy(g_ui_data[g_current_active_user_id].weather, "Rain"); break;       // 雨
+        case 13: strcpy(g_ui_data[g_current_active_user_id].weather, "Shower"); break;     // 阵雨
+        case 14: strcpy(g_ui_data[g_current_active_user_id].weather, "Shower"); break;     // 阵雨
+        
+        case 15: strcpy(g_ui_data[g_current_active_user_id].weather, "Thunder"); break;    // 雷雨
+        case 16: strcpy(g_ui_data[g_current_active_user_id].weather, "Thunder"); break;    // 雷雨
+        
+        case 17: strcpy(g_ui_data[g_current_active_user_id].weather, "Snow"); break;       // 雪
+        case 18: strcpy(g_ui_data[g_current_active_user_id].weather, "Snow"); break;       // 雪
+        
+        case 19: strcpy(g_ui_data[g_current_active_user_id].weather, "Rain"); break;       // 冻雨
+        
+        default: strcpy(g_ui_data[g_current_active_user_id].weather, "Unknown"); break;
+    }
+    
+    g_ui_data[g_current_active_user_id].weather_temp = temperature;
+    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WEATHER;
+    
+    APP_LOG("[Weather Sync] Weather: %s (code=%d), Temp: %d°C\n", 
+            g_ui_data[g_current_active_user_id].weather, weather_code, temperature);
+}
 
             /*wifi状态更新*/
             if (rx_packet.sensor_id == CMD_WIFI_STATUS_UPDATE)

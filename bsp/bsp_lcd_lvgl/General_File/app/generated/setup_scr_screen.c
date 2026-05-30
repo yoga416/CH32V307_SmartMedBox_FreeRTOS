@@ -221,7 +221,7 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_align(ui->screen_btn_1_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_pad_all(ui->screen_btn_1, 0, LV_STATE_DEFAULT);
     lv_obj_set_width(ui->screen_btn_1_label, LV_PCT(100));
-    lv_obj_set_pos(ui->screen_btn_1, 177, 203);
+    lv_obj_set_pos(ui->screen_btn_1, 177, 230);
     lv_obj_set_size(ui->screen_btn_1, 94, 45);
 
     //Write style for screen_btn_1, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
@@ -285,6 +285,69 @@ void setup_scr_screen(lv_ui *ui)
     lv_obj_set_style_bg_color(ui->screen_label_user, lv_color_hex(0x104775), LV_PART_MAIN|LV_STATE_DEFAULT); // 经典深蓝底色
     lv_obj_set_style_pad_top(ui->screen_label_user, 6, LV_PART_MAIN|LV_STATE_DEFAULT);
 
+
+
+// ========== 标签1：天气图标 ==========
+ui->screen_label_weather_icon = lv_label_create(ui->screen_cont_1);
+lv_label_set_text(ui->screen_label_weather_icon, "weather:sun");
+lv_label_set_long_mode(ui->screen_label_weather_icon, LV_LABEL_LONG_WRAP);
+lv_obj_set_pos(ui->screen_label_weather_icon, 20, 110);  // X坐标改为10
+lv_obj_set_size(ui->screen_label_weather_icon, 320, 32);
+
+// 设置样式：白色背景，黑色文字，文字左对齐
+lv_obj_set_style_border_width(ui->screen_label_weather_icon, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_radius(ui->screen_label_weather_icon, 4, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(ui->screen_label_weather_icon, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui->screen_label_weather_icon, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_opa(ui->screen_label_weather_icon, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui->screen_label_weather_icon, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);  // 改为左对齐
+lv_obj_set_style_bg_opa(ui->screen_label_weather_icon, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_bg_color(ui->screen_label_weather_icon, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_pad_left(ui->screen_label_weather_icon, 8, LV_PART_MAIN|LV_STATE_DEFAULT);  // 添加左内边距，文字不贴边
+lv_obj_set_style_pad_top(ui->screen_label_weather_icon, 6, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+// ========== 标签2：温度 ==========
+ui->screen_label_temperature = lv_label_create(ui->screen_cont_1);
+lv_label_set_text(ui->screen_label_temperature, "temperature:25°C");
+lv_label_set_long_mode(ui->screen_label_temperature, LV_LABEL_LONG_WRAP);
+lv_obj_set_pos(ui->screen_label_temperature, 20, 145);  // X坐标改为10（与上面相同）
+lv_obj_set_size(ui->screen_label_temperature, 320, 32);
+
+// 设置样式：白色背景，黑色文字，文字左对齐
+lv_obj_set_style_border_width(ui->screen_label_temperature, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_radius(ui->screen_label_temperature, 4, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(ui->screen_label_temperature, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui->screen_label_temperature, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_opa(ui->screen_label_temperature, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui->screen_label_temperature, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);  // 改为左对齐
+lv_obj_set_style_bg_opa(ui->screen_label_temperature, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_bg_color(ui->screen_label_temperature, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_pad_left(ui->screen_label_temperature, 8, LV_PART_MAIN|LV_STATE_DEFAULT);  // 添加左内边距
+lv_obj_set_style_pad_top(ui->screen_label_temperature, 6, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+// ========== 标签3：城市 ==========
+ui->screen_label_city = lv_label_create(ui->screen_cont_1);
+lv_label_set_text(ui->screen_label_city, "city:Shanghai");
+lv_label_set_long_mode(ui->screen_label_city, LV_LABEL_LONG_WRAP);
+lv_obj_set_pos(ui->screen_label_city, 20, 180);  // X坐标改为10（与上面相同）
+lv_obj_set_size(ui->screen_label_city, 320, 32);
+
+// 设置样式：白色背景，黑色文字，文字左对齐
+lv_obj_set_style_border_width(ui->screen_label_city, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_radius(ui->screen_label_city, 4, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_color(ui->screen_label_city, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_font(ui->screen_label_city, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_opa(ui->screen_label_city, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_text_align(ui->screen_label_city, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN|LV_STATE_DEFAULT);  // 改为左对齐
+lv_obj_set_style_bg_opa(ui->screen_label_city, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_bg_color(ui->screen_label_city, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+lv_obj_set_style_pad_left(ui->screen_label_city, 8, LV_PART_MAIN|LV_STATE_DEFAULT);  // 添加左内边距
+lv_obj_set_style_pad_top(ui->screen_label_city, 6, LV_PART_MAIN|LV_STATE_DEFAULT);
+   
+   
+   
+   
+   
     //Update current screen layout.
     lv_obj_update_layout(ui->screen);
 

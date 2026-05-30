@@ -45,6 +45,9 @@ typedef struct
 	lv_obj_t *screen_1_btn_4;//返回主页面（按键）
 	lv_obj_t *screen_1_btn_4_label;//屏幕1标签
 	lv_obj_t *screen_label_user;//用户信息显示标签
+	lv_obj_t *screen_label_weather_icon;//天气信息显示标签
+	lv_obj_t *screen_label_temperature;//温度信息显示标签
+	lv_obj_t *screen_label_city;//城市信息显示标签
 
 	
 	lv_obj_t *screen_2;//屏幕2

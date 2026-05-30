@@ -38,6 +38,9 @@ static void clear_all_old_pointers(void)
     guider_ui.screen_btn_1_label = NULL;
     guider_ui.screen_label_3 = NULL;
     guider_ui.screen_label_user = NULL;
+    guider_ui.screen_label_weather_icon = NULL;
+    guider_ui.screen_label_temperature = NULL;
+    guider_ui.screen_label_city = NULL;
 
     // === 屏幕1 (screen_1) ===
     guider_ui.screen_1_cont_1 = NULL;

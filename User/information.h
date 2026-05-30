@@ -21,6 +21,9 @@
 #define UI_FLAG_SCHEDULE      (1 << 6)
 #define UI_FLAG_MED_STATUS    (1 << 7) // 吃药状态更新
 #define UI_FLAG_USER_STEP     (1 << 8) // 吃药界面分步刷新控制
+#define UI_FLAG_WEATHER       (1 << 9) // 天气信息更新
+#define UI_FLAG_CITY          (1 << 10) // 城市信息更新
+#define UI_FLAG_TEMPERATURE    (1 << 11) // 温度信息更新
 /*时间开始*/
 extern uint16_t current_time_virvual[6]; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 
@@ -72,7 +75,7 @@ typedef struct {
 
     // 天气与定位（不存 Flash，运行时从 WiFi 获取）
     char city_name[16];                      // 城市名
-    int8_t weather_code;                     // 天气代码
+    char weather[16];                     // 天气代码
     int8_t weather_temp;                     // 室外温度（摄氏度）
 
     // 1. 漏服记录
