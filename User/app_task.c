@@ -59,6 +59,7 @@ QueueHandle_t CmdQueue = NULL; // 系统命令队列
 QueueHandle_t sendtianwenQueue = NULL; // 天问通信命令队列
 QueueHandle_t sensor_data_lcd_queue = NULL; // 传感器数据队列
 SemaphoreHandle_t xGuiMutex = NULL; // LVGL 互斥锁，防止多任务并发访问 GUI
+EventGroupHandle_t xWatchdogEventGroup = NULL; // 看门狗事件组
 SemaphoreHandle_t xSem_face_recog;// 人脸识别检测开始同步信号量
 SemaphoreHandle_t xSem_face_result_yes; // 人脸识别结果信号量(识别成功)
 SemaphoreHandle_t xSem_face_result_no; // 人脸识别结果信号量(识别失败)
@@ -162,12 +163,6 @@ void app_task(void *pvParameters)
                     break;
             }
         }
-        
-        /* 喂狗：通知 watchdog_task */
-        if (watchdogTask_Handler != NULL) {
-            xTaskNotifyGive(watchdogTask_Handler);
-        }
-
         //    // /*测试串口发送5s发一次*/
         // if(xTaskGetTickCount() - last_time >= pdMS_TO_TICKS(5000)) {
         //     last_time = xTaskGetTickCount();
@@ -209,6 +204,9 @@ void app_task(void *pvParameters)
             }   
          }
         }
+
+        //设置看门狗事件位，表示 app_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_APP_TASK);
         vTaskDelay(pdMS_TO_TICKS(5)); // 每20ms检查一次事件队列和喂一次狗
     }
 }
@@ -223,7 +221,8 @@ void lcd_task(void *pvParameters)
             lv_timer_handler();  // 处理 LVGL 定时器
             xSemaphoreGive(xGuiMutex);
         }
-    
+        //设置看门狗事件位，表示 lcd_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_LCD_TASK);
         vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms更新一次 LCD
     }
 }
@@ -242,18 +241,6 @@ void sensor_lcd_task(void *pvParameters)
 
     // 将从 Flash 加载的 meds_schedule 同步到 my_meds
     memcpy(my_meds, g_ui_data[g_current_active_user_id].meds_schedule, sizeof(my_meds));
-
-    /* [DEBUG] 打印所有 screen_label 指针，检查是否有效 */
-    printf("[DEBUG] guider_ui ptrs: scr=%p label_2=%p label_3=%p label_4=%p label_5=%p label_6=%p label_7=%p label_8=%p\n",
-        (void*)guider_ui.screen,
-        (void*)guider_ui.screen_label_2,
-        (void*)guider_ui.screen_label_3,
-        (void*)guider_ui.screen_label_4,
-        (void*)guider_ui.screen_label_5,
-        (void*)guider_ui.screen_label_6,
-        (void*)guider_ui.screen_label_7,
-        (void*)guider_ui.screen_label_8);
-    printf("[DEBUG] xGuiMutex addr=%p\n", (void*)&xGuiMutex);
 
     for(;;)
     {
@@ -328,9 +315,7 @@ void sensor_lcd_task(void *pvParameters)
         {
             if(xSemaphoreTake(xGuiMutex, pdMS_TO_TICKS(100)) == pdTRUE) 
             {
-                // 注意：在拿锁之后重新确认一次 uid，或者就用之前的快照
-                // 这里我们使用快照 uid 以保证逻辑连贯性
-
+            
                 // 强制同步：确保 my_meds 始终与 g_ui_data (Flash数据) 一致
                 extern AlarmSche my_meds[3];
                 memcpy(my_meds, g_ui_data[uid].meds_schedule, sizeof(my_meds));
@@ -374,9 +359,9 @@ void sensor_lcd_task(void *pvParameters)
                  /*显示wifi状态：T → "ON", F → "OFF"*/
                 if (lv_obj_is_valid(guider_ui.screen_label_2))
                 {
-                    if (g_ui_data[uid].wifi_status == 'T')
+                    if (g_ui_data[uid].wifi_status == 0)
                         lv_label_set_text(guider_ui.screen_label_2, "ON");
-                    else
+                    else if (g_ui_data[uid].wifi_status == 1)
                         lv_label_set_text(guider_ui.screen_label_2, "OFF");
                 }
 
@@ -520,7 +505,8 @@ void sensor_lcd_task(void *pvParameters)
             check_medication_time();
             last_check_mechine_time = xTaskGetTickCount(); // 更新上一次检查的时间
         }
-
+        //设置看门狗事件位，表示 sensor_lcd_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_SENSOR_LCD_TASK);
         vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms更新一次 LCD
     }   
 }
@@ -595,6 +581,8 @@ void bsp_sensor_task(void *pvParameters)
             }
         }
      
+         //设置看门狗事件位，表示 bsp_sensor_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_SENSOR_TASK);
         vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms检查一次系统指令队列
     }
 }
@@ -648,9 +636,6 @@ void usart_task(void *pvParameters)
                 // 每200秒校准一次误差 (首次或者间隔超过200,000ms)
                 if (is_first_sync || (current_tick - last_sync_tick) >= pdMS_TO_TICKS(20000))
                 {
-                    // printf("\r\n[Time Sync] Calibrating RTC (Interval 200s): 20%02d-%02d-%02d %02d:%02d:%02d\n", 
-                    //         year, month, day, hour, minute, second);
-                    
                     // 修改 RTC 时间
                     BSP_RTC_ModifyTime(2000 + year, month, day, hour, minute, second);
                     
@@ -704,15 +689,10 @@ void usart_task(void *pvParameters)
                 if(rx_packet.payload[0] == 0x32) {
                     // 接收到心跳包，说明模块在线，更新 WiFi 状态和最后收到状态的时间戳
                     last_wifi_tick = xTaskGetTickCount();
-                    g_ui_data[g_current_active_user_id].wifi_status = 'T'; // 'T' 表示 WiFi 已连接
+                    g_ui_data[g_current_active_user_id].wifi_status = 0; // 0 表示 WiFi 已连接
                 } else {
-                    g_ui_data[g_current_active_user_id].wifi_status = 'F'; // 'F' 表示 WiFi 断开
+                    g_ui_data[g_current_active_user_id].wifi_status = 1; // 1 表示 WiFi 断开
                 }
-                printf("[WiFi Debug] status='%c'(%d) payload=0x%02X uid=%d\n",
-                    g_ui_data[g_current_active_user_id].wifi_status,
-                    g_ui_data[g_current_active_user_id].wifi_status,
-                    rx_packet.payload[0],
-                    g_current_active_user_id);
                 g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
@@ -720,16 +700,17 @@ void usart_task(void *pvParameters)
         // 3. 独立的心跳超时检测逻辑 (放在接收 if 块的外面)
         // ==========================================
         /* 串口 20s 内没有接收到任何数据时，把 wifi_status 设置为 'F' */
-        if(g_ui_data[g_current_active_user_id].wifi_status == 'T') 
+        if(g_ui_data[g_current_active_user_id].wifi_status == 0) 
         {
-            if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(200)) 
+            if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(20000)) 
             {
-                APP_LOG("[WiFi] No status update received for 20s, setting status to 'F'\n");
-                g_ui_data[g_current_active_user_id].wifi_status = 'F';
+                APP_LOG("[WiFi] No status update received for 20s, setting status to 'off'\n");
+                g_ui_data[g_current_active_user_id].wifi_status = 1;
                 g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
-
+        //设置看门狗事件位，表示 usart_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_USART_TASK);
         vTaskDelay(pdMS_TO_TICKS(5));
     }
     }
@@ -749,19 +730,12 @@ void watchdog_task(void *pvParameters)
     (void)pvParameters;
     for(;;)
     {
-        // 等待 app_task 的喂狗通知，如果在 2000ms 内等不到，说明 app_task 卡死了
-        // 注意：不等待通知直接喂狗掩盖了死机，这里我们恢复通知等待机制
-        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000))) 
-        {
-            IWDG_ReloadCounter();
-        } 
-        else 
-        {
-            // 超时未收到通知，可能是卡死了，不喂狗，让系统复位
-            APP_LOG("[Watchdog] Timeout waiting for App Task notification!\r\n");
+        if(WDOG_BIT_ALL_TASKS == (xEventGroupGetBits(xWatchdogEventGroup) & WDOG_BIT_ALL_TASKS)) {
+
+             IWDG_ReloadCounter(); // 喂独立看门狗
+            xEventGroupClearBits(xWatchdogEventGroup, WDOG_BIT_ALL_TASKS); // 清除所有任务位，准备下一轮监测
         }
-         //printf("the process is running!\n");
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(100));
     }
 
 }

@@ -34,7 +34,7 @@ void SystemData_Init_Load(void)
         // 1. 修复：使用 uid 隔离初始化对应用户的内存空间
         memset(&g_ui_data[uid], 0, sizeof(UI_DisplayData_t));
         g_ui_data[uid].magic_num = 0x55AA;
-        g_ui_data[uid].wifi_status = 'F'; // 开机默认显示断开 'F'
+        g_ui_data[uid].wifi_status = 1; // 开机默认显示断开 'F'
 
         // 计算该用户在 W25Q 中的独立扇区基地址
         uint32_t user_base_addr = DATA_SECTOR_ADDR + (uid * SECTOR_SIZE);
@@ -55,7 +55,7 @@ void SystemData_Init_Load(void)
                 memcpy(&g_ui_data[uid], &temp_data, sizeof(UI_DisplayData_t));
                 
                 // WiFi 状态是动态的，不从 Flash 恢复
-                g_ui_data[uid].wifi_status = 'F'; 
+                g_ui_data[uid].wifi_status = 1; 
                 
                 // 记住该用户当前的滚动偏移量
                 current_flash_offset[uid] = offset;
@@ -73,7 +73,7 @@ void SystemData_Init_Load(void)
         if (!found) {
             memset(&g_ui_data[uid], 0, sizeof(UI_DisplayData_t));
             g_ui_data[uid].magic_num = 0x55AA;
-            g_ui_data[uid].wifi_status = 'F';
+            g_ui_data[uid].wifi_status = 1;
             
             // 只有空片时，才引入系统默认吃药时间计划和默认数量
             for (int i = 0; i < MAX_SCHE; i++) {
@@ -88,14 +88,6 @@ void SystemData_Init_Load(void)
             current_flash_offset[uid] = 0;
         }
         
-    //     // 4. 【重要逻辑调整】：不再用单组 my_meds 强行覆盖已经读出来的、属于不同用户的独立时间！
-    //     // 如果需要让任务层知道当前选中的 0 号用户的时间，可以在循环外单独对齐：
-    //     for(int i = 0; i < MAX_USER; i++) {
-    //     for(int j = 0; j < MAX_SCHE; j++) {
-    //         g_ui_data[i].meds_schedule[j].hour=my_meds[j].hour;
-    //         g_ui_data[i].meds_schedule[j].min=my_meds[j].min;
-    //     }
-    // }
         // 开机强制刷新该用户对应的整个 UI 标志位
         g_ui_data[uid].update_flags = 0xFFFFFFFF; 
     }

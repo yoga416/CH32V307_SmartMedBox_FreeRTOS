@@ -211,13 +211,9 @@ void tianwen_task(void *pvParameters)
                   }
          }
         } // end if(sendtianwenQueue)
-
-        /* ⚠️ 必须延时让低优先级任务有机会喂狗 */
-        vTaskDelay(pdMS_TO_TICKS(5));
-        /* 也在这里喂狗，防止 for 循环卡死 app_task */
-        if (watchdogTask_Handler != NULL) {
-            xTaskNotifyGive(watchdogTask_Handler);
-        }
+       //设置看门狗事件位，表示 tianwen_task 正常运行
+        xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_TIANWEN_TASK);
+        vTaskDelay(pdMS_TO_TICKS(5)); // 每5ms检查一次天问通信队列 
     } // end for(;;)
 } // end tianwen_task
 

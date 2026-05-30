@@ -4,6 +4,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "event_groups.h"
 #include "Middle_ring_buffer.h"
 #include "information.h"
 /* 任务优先级定义 */
@@ -48,6 +49,19 @@ extern RingBuffer_t g_ring_buffer; // 声明全局环形缓冲区实例
 extern QueueHandle_t sensor_data_lcd_queue; // 声明全局传感器数据 LCD 显示队列
 extern SemaphoreHandle_t xGuiMutex; // LVGL 互斥锁，保护所有 GUI 操作
 
+/* ========== 看门狗事件组 ========== */
+/* 每个任务对应一个 bit，任务执行一次即置位自己的 bit */
+#define WDOG_BIT_APP_TASK       (1 << 0)   // app_task
+#define WDOG_BIT_SENSOR_TASK    (1 << 1)   // bsp_sensor_task
+#define WDOG_BIT_USART_TASK     (1 << 2)   // usart_task
+#define WDOG_BIT_TIANWEN_TASK   (1 << 3)   // tianwen_task
+#define WDOG_BIT_LCD_TASK       (1 << 4)   // lcd_task
+#define WDOG_BIT_SENSOR_LCD_TASK (1 << 5)  // sensor_lcd_task
+#define WDOG_BIT_ALL_TASKS      (WDOG_BIT_APP_TASK | WDOG_BIT_SENSOR_TASK | \
+                                 WDOG_BIT_USART_TASK | WDOG_BIT_TIANWEN_TASK | \
+                                 WDOG_BIT_LCD_TASK | WDOG_BIT_SENSOR_LCD_TASK)
+
+extern EventGroupHandle_t xWatchdogEventGroup; // 看门狗事件组
 
 /* 全局变量声明 */
 extern TaskHandle_t bspSensorTask_Handler;

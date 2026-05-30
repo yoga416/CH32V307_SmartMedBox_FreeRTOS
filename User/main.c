@@ -57,6 +57,14 @@ int main(void)
      /* 创建互斥锁和队列 */
     // cm_backtrace_init("CmBackTrace", HARDWARE_VERSION, SOFTWARE_VERSION);
     printf("\r\n==================start======================\r\n");
+    
+    /* 创建看门狗事件组 */
+    xWatchdogEventGroup = xEventGroupCreate();
+    if (xWatchdogEventGroup == NULL) {
+        printf("[Error] Create watchdog event group failed\n");
+        while (1) {}
+    }
+    
     uint8_t ret = 0;
     ret = g_peripheral_init();
     if (ret != SYSTEM_INIT_OK) {
@@ -107,12 +115,12 @@ int main(void)
         printf("[Error] Create tianwen_task failed\n");
         while (1) {}
     }
-    /* 创建周期喂狗任务（在 app_task.c 中实现） */
+    /* 创建周期喂狗任务（优先级最低，确保所有任务都执行过一遍后它才得到执行） */
     if (xTaskCreate((TaskFunction_t )watchdog_task,
                         (const char*    )"watchdog_task",
                         (uint16_t       )WATCHDOG_TASK_STK_SIZE,
                         (void*          )NULL,
-                        (UBaseType_t    )WATCHDOG_TASK_PRIO,
+                        (UBaseType_t    )0,   /* 优先级 0 = 空闲级，最低 */
                         (TaskHandle_t*  )&watchdogTask_Handler) != pdPASS)
     {
         printf("[Error] Create watchdog_task failed\n");

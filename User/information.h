@@ -70,6 +70,11 @@ typedef struct {
     char wifi_status;                        // WIFI 状态
     uint8_t reserved_align;                  // 对齐
 
+    // 天气与定位（不存 Flash，运行时从 WiFi 获取）
+    char city_name[16];                      // 城市名
+    int8_t weather_code;                     // 天气代码
+    int8_t weather_temp;                     // 室外温度（摄氏度）
+
     // 1. 漏服记录
     uint16_t record_count;                   
     MissedDoseRecord missed_records[MAX_HISTORY]; 
