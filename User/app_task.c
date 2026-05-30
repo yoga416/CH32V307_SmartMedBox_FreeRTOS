@@ -79,6 +79,7 @@ TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
  extern SystemCommand_t received_cmd;
  extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
  extern uint8_t g_current_active_user_id; // 当前活跃用户ID
+ extern void custom_bind_time_labels(void);  
  UI_DisplayData_t g_ui_data[MAX_USER]; // 全局 UI 数据结构实例
 // 在主循环中处理接收
 FR_packet_t rx_pkt;
@@ -341,7 +342,7 @@ void sensor_lcd_task(void *pvParameters)
                         uint16_t latest_hr = g_ui_data[uid].hr_history[count - 1].hr;
                         uint16_t latest_spo2 = g_ui_data[uid].hr_history[count - 1].spo2;
                         if (lv_obj_is_valid(guider_ui.screen_2_label_13))
-                            lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d b", latest_hr/100); 
+                            lv_label_set_text_fmt(guider_ui.screen_2_label_13, "%d bpm", latest_hr/100); 
                         if (lv_obj_is_valid(guider_ui.screen_2_label_14))
                             lv_label_set_text_fmt(guider_ui.screen_2_label_14, "%d %%", latest_spo2/100); 
                     }
@@ -370,10 +371,13 @@ void sensor_lcd_task(void *pvParameters)
                     }
                 }
 
-                 /*显示wifi状态*/
+                 /*显示wifi状态：T → "ON", F → "OFF"*/
                 if (lv_obj_is_valid(guider_ui.screen_label_2))
                 {
-                    lv_label_set_text_fmt(guider_ui.screen_label_2, "%c", g_ui_data[uid].wifi_status);
+                    if (g_ui_data[uid].wifi_status == 'T')
+                        lv_label_set_text(guider_ui.screen_label_2, "ON");
+                    else
+                        lv_label_set_text(guider_ui.screen_label_2, "OFF");
                 }
 
                 // 4. 刷新时间
@@ -398,7 +402,7 @@ void sensor_lcd_task(void *pvParameters)
                     for(int i = 0; i < 4; i++) {
                         if(lv_obj_is_valid(labels[i])) {
                             if(i < g_ui_data[uid].record_count) {
-                                lv_label_set_text_fmt(labels[i], "no:%lu time:%s turn:%s",
+                                lv_label_set_text_fmt(labels[i], "tag:%lu day:%s time:%s",
                                     (unsigned long)g_ui_data[uid].missed_records[i].id,
                                     g_ui_data[uid].missed_records[i].date,
                                     g_ui_data[uid].missed_records[i].time);
@@ -411,6 +415,7 @@ void sensor_lcd_task(void *pvParameters)
                 }
                 
                 if(g_ui_data[uid].update_flags & UI_FLAG_SCHEDULE) {
+                    custom_bind_time_labels();
                     if(lv_obj_is_valid(guider_ui.screen_4_label_2))
                         lv_label_set_text_fmt(guider_ui.screen_4_label_2, "Time: %02d:%02d", 
                             g_ui_data[uid].meds_schedule[0].hour, g_ui_data[uid].meds_schedule[0].min);
@@ -494,13 +499,12 @@ void sensor_lcd_task(void *pvParameters)
             if (guider_ui.screen_label_user != NULL) 
             {
                 if (uid == 0) {
-                
-                 lv_label_set_text(guider_ui.screen_label_user, "不");
+               lv_label_set_text_fmt(guider_ui.screen_label_user, "User: %d", uid+1);
             } else if (uid == 1) {
-                lv_label_set_text(guider_ui.screen_label_user, "用");
+                lv_label_set_text_fmt(guider_ui.screen_label_user, "User: %d", uid+1);
             } else if (uid == 2) {
-                lv_label_set_text(guider_ui.screen_label_user, "在");
-                    }
+                lv_label_set_text_fmt(guider_ui.screen_label_user, "User: %d", uid+1);
+            } 
             }
         }
                  // 刷新完成后，清除更新标志
@@ -573,17 +577,17 @@ void bsp_sensor_task(void *pvParameters)
                     break;
 
                 case CMD_SEND_SMS_ALERT:
-                    APP_LOG("[App] Received CMD: Send SMS Alert\n");
-                    if (!a7670c_ready) {
-                        printf("[App] A7670C not ready, cannot send SMS!\n");
-                        break;
-                    }
-                    A7670C_WakeUp();
-                    APP_LOG("--- Alert triggered: Sending SMS ---\r\n");
-                    A7670C_SendSMS_Auto("18135183446", "请按时服药！");
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    A7670C_EnterSleep();
-                    APP_LOG("--- SMS sent, module sleeping ---\r\n");
+                    // APP_LOG("[App] Received CMD: Send SMS Alert\n");
+                    // if (!a7670c_ready) {
+                    //     printf("[App] A7670C not ready, cannot send SMS!\n");
+                    //     break;
+                    // }
+                    // A7670C_WakeUp();
+                    // APP_LOG("--- Alert triggered: Sending SMS ---\r\n");
+                    // A7670C_SendSMS_Auto("18135183446", "请按时服药！");
+                    // vTaskDelay(pdMS_TO_TICKS(1000));
+                    // A7670C_EnterSleep();
+                    // APP_LOG("--- SMS sent, module sleeping ---\r\n");
                     break;
 
                 default:
@@ -704,6 +708,11 @@ void usart_task(void *pvParameters)
                 } else {
                     g_ui_data[g_current_active_user_id].wifi_status = 'F'; // 'F' 表示 WiFi 断开
                 }
+                printf("[WiFi Debug] status='%c'(%d) payload=0x%02X uid=%d\n",
+                    g_ui_data[g_current_active_user_id].wifi_status,
+                    g_ui_data[g_current_active_user_id].wifi_status,
+                    rx_packet.payload[0],
+                    g_current_active_user_id);
                 g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
@@ -713,7 +722,7 @@ void usart_task(void *pvParameters)
         /* 串口 20s 内没有接收到任何数据时，把 wifi_status 设置为 'F' */
         if(g_ui_data[g_current_active_user_id].wifi_status == 'T') 
         {
-            if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(20200)) 
+            if ((xTaskGetTickCount() - last_wifi_tick) >= pdMS_TO_TICKS(200)) 
             {
                 APP_LOG("[WiFi] No status update received for 20s, setting status to 'F'\n");
                 g_ui_data[g_current_active_user_id].wifi_status = 'F';
@@ -756,6 +765,7 @@ void watchdog_task(void *pvParameters)
     }
 
 }
+
 /*规定时间为前后10分钟*/ // 注：代码里写的是 +/- 1分钟
 void check_medication_time(void) {
     RTC_TimeTypeDef current_time;

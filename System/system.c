@@ -323,7 +323,7 @@ uint8_t g_peripheral_init(void)
     POINT_COLOR = BLACK;
     BACK_COLOR = WHITE;
     LCD_ShowString(50, 50, (u8*)"WANG YUE TING IS HERE!", BLUE, WHITE, 16);
-    Delay_Ms(2000);
+    Delay_Ms(1000);
     
     // 初始化触摸屏的 I2C 接口
     CTP_IIC_Init();

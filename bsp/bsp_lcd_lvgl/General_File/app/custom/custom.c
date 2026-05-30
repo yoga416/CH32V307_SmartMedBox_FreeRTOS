@@ -12,10 +12,12 @@
  *********************/
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include "lvgl.h"
 #include "custom.h"
 #include "gui_guider.h"
 #include "information.h" 
+#include "app_task.h"    // UI_FLAG_MED_STATUS 等标志定义
 
 /*********************
  * DEFINES
@@ -150,32 +152,40 @@ static void time_label_click_cb(lv_event_t * e)
     lv_obj_center(label_cancel);
 }
 
+/* 将原本 custom_init 里的绑定代码移出来，做成一个独立的动态绑定函数 */
+void custom_bind_time_labels(void)
+{
+    // 如果控件已经生成，且还没被设置为"可点击"，则为它绑定事件
+    if (lv_obj_is_valid(guider_ui.screen_4_label_2)) {
+        if (!lv_obj_has_flag(guider_ui.screen_4_label_2, LV_OBJ_FLAG_CLICKABLE)) {
+            lv_obj_add_flag(guider_ui.screen_4_label_2, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_event_cb(guider_ui.screen_4_label_2, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)0); 
+        }
+    }
+    
+    if (lv_obj_is_valid(guider_ui.screen_4_label_20)) {
+        if (!lv_obj_has_flag(guider_ui.screen_4_label_20, LV_OBJ_FLAG_CLICKABLE)) {
+            lv_obj_add_flag(guider_ui.screen_4_label_20, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_event_cb(guider_ui.screen_4_label_20, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)1);
+        }
+    }
 
+    if (lv_obj_is_valid(guider_ui.screen_4_label_23)) {
+        if (!lv_obj_has_flag(guider_ui.screen_4_label_23, LV_OBJ_FLAG_CLICKABLE)) {
+            lv_obj_add_flag(guider_ui.screen_4_label_23, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_event_cb(guider_ui.screen_4_label_23, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)2);
+        }
+    }
+}
 /**
  * Create a demo application
  * GUI Guider 在创建完组件后会调用这个函数，我们将绑定逻辑放在这里
  */
 void custom_init(lv_ui *ui)
 {
-    /* ========= 设置 Screen 4 的三个吃药时间为可点击 ========= */
-    
-    // 第 1 顿吃药时间 (根据你的实际工程，确认变量名是否为 screen_4_label_2)
-    if (lv_obj_is_valid(ui->screen_4_label_2)) {
-        lv_obj_add_flag(ui->screen_4_label_2, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(ui->screen_4_label_2, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)0); 
-    }
-    
-    // 第 2 顿吃药时间
-    if (lv_obj_is_valid(ui->screen_4_label_20)) {
-        lv_obj_add_flag(ui->screen_4_label_20, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(ui->screen_4_label_20, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)1);
-    }
+    // 1. 绑定吃药时间标签的点击事件，生成时间选择弹窗
 
-    // 第 3 顿吃药时间
-    if (lv_obj_is_valid(ui->screen_4_label_23)) {
-        lv_obj_add_flag(ui->screen_4_label_23, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(ui->screen_4_label_23, time_label_click_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)2);
-    }
+    // 2. 其他初始化代码（如果有）可以放在这里
 }
 
 /*
@@ -188,6 +198,46 @@ static void gui_label_delete_cb(lv_event_t *e)
     lv_obj_t **pptr = (lv_obj_t **)lv_event_get_user_data(e);
     if (pptr != NULL) {
         *pptr = NULL;
+    }
+}
+
+/* ========== 从 setup_scr_screen_3.c 迁移过来的吃药按钮回调 ========== */
+/* “吃药”按钮的点击事件回调函数 */
+void btn_take_med_event_cb(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * btn = lv_event_get_target(e);
+    if(code == LV_EVENT_CLICKED) {
+        // 获取按钮内部的 Label 并修改文字
+        lv_obj_t * label = lv_obj_get_child(btn, 0); 
+        if(label != NULL) {
+            lv_label_set_text(label, "记录"); 
+        }
+        // 获取触发按钮的指针，并更新对应的状态
+        if (btn == guider_ui.screen_3_btn_med1) {
+            g_ui_data[g_current_active_user_id].med_status[0] = true; // 记录药品一已服用
+        } else if (btn == guider_ui.screen_3_btn_med2) {
+            g_ui_data[g_current_active_user_id].med_status[1] = true; // 记录药品二已服用
+        } else if (btn == guider_ui.screen_3_btn_med3) {
+            g_ui_data[g_current_active_user_id].med_status[2] = true; // 记录药品三已服用
+        }
+        // 三顿药都吃完则标记 meds_completed
+        if(g_ui_data[g_current_active_user_id].med_status[0]==1 && 
+           g_ui_data[g_current_active_user_id].med_status[1]==1 && 
+           g_ui_data[g_current_active_user_id].med_status[2]==1) {
+            // 查找当前哪一顿还未完成
+            for(int i = 0; i < 3; i++) {
+                if(g_ui_data[g_current_active_user_id].meds_completed[i] == 0) {
+                    g_ui_data[g_current_active_user_id].meds_completed[i] = 1;
+                    break;
+                }
+            }
+        }
+        // 禁用该按钮，防止重复点击
+        lv_obj_add_state(btn, LV_STATE_DISABLED); 
+        g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_MED_STATUS; // 触发 UI 刷新
+        /*保存状态*/
+        SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
     }
 }
 

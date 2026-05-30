@@ -16,7 +16,8 @@ extern "C" {
 #include "gui_guider.h"
 
 void custom_init(lv_ui *ui);
-
+void custom_bind_time_labels(void);
+void btn_take_med_event_cb(lv_event_t * e);
 #ifdef __cplusplus
 }
 #endif

@@ -15,45 +15,6 @@
 #include "widgets_init.h"
 #include "custom.h"
 #include "app_task.h" // 包含全局数据结构和函数声明
-// 声明外部检测函数：由其他文件提供
-extern bool check_medication_time(void);
-extern UI_DisplayData_t g_ui_data[MAX_USER];
-extern void SystemData_Save_To_Flash_ByUser(uint8_t user_idx);
-extern uint8_t g_current_active_user_id; // 当前活跃用户ID
-// “吃药”按钮的点击事件回调函数
-static void btn_take_med_event_cb(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    lv_obj_t * btn = lv_event_get_target(e);
-    int index=0;
-    if(code == LV_EVENT_CLICKED) {
-        // 获取按钮内部的 Label 并修改文字
-        lv_obj_t * label = lv_obj_get_child(btn, 0); 
-        if(label != NULL) {
-            lv_label_set_text(label, "记录"); 
-        }
-        // 获取触发按钮的指针，并更新对应的状态
-    if (btn == guider_ui.screen_3_btn_med1) {
-       g_ui_data[g_current_active_user_id].med_status[0] = true; // 记录药品一已服用
-    } else if (btn == guider_ui.screen_3_btn_med2) {
-        g_ui_data[g_current_active_user_id].med_status[1] = true; // 记录药品二已服用
-    } else if (btn == guider_ui.screen_3_btn_med3) {
-        g_ui_data[g_current_active_user_id].med_status[2] = true; // 记录药品三已服用
-    }
-    if(g_ui_data[g_current_active_user_id].med_status[0]==1 && g_ui_data[g_current_active_user_id].med_status[1]==1 && g_ui_data[g_current_active_user_id].med_status[2]==1) {
-        g_ui_data[g_current_active_user_id].meds_completed[index] = 1; // 标记当前时间段的吃药完成
-        index++; // 准备下一个时间段的记录
-        if(index >= 3) index = 0; // 循环使用 meds_completed 数组
-    }
-        // 禁用该按钮，防止重复点击
-        lv_obj_add_state(btn, LV_STATE_DISABLED); 
-    g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_MED_STATUS; // 触发 UI 刷新
-    /*保存状态*/
-   SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
-    }
-}
-
-
 void setup_scr_screen_3(lv_ui *ui)
 {
     // Write codes screen_3
@@ -91,8 +52,8 @@ void setup_scr_screen_3(lv_ui *ui)
         
         // 药品一
         lv_obj_t * label_med1 = lv_label_create(ui->screen_3_cont_1);
-        lv_label_set_text(label_med1, "药");
-        lv_obj_set_style_text_font(label_med1, &lv_font_SourceHanSerifSC_Regular_20, 0);
+        lv_label_set_text(label_med1, "Mechine 1");
+        lv_obj_set_style_text_font(label_med1, &lv_font_montserrat_16, 0);
         lv_obj_set_pos(label_med1, 40, 80);
         
         lv_obj_t * btn_med1 = lv_btn_create(ui->screen_3_cont_1);
@@ -113,8 +74,8 @@ void setup_scr_screen_3(lv_ui *ui)
 
         // 药品二
         lv_obj_t * label_med2 = lv_label_create(ui->screen_3_cont_1);
-        lv_label_set_text(label_med2, "药");
-        lv_obj_set_style_text_font(label_med2, &lv_font_SourceHanSerifSC_Regular_20, 0);
+        lv_label_set_text(label_med2, "Mechine 2");
+        lv_obj_set_style_text_font(label_med2, &lv_font_montserrat_16, 0);
         lv_obj_set_pos(label_med2, 40, 150);
         
         lv_obj_t * btn_med2 = lv_btn_create(ui->screen_3_cont_1);
@@ -135,8 +96,8 @@ void setup_scr_screen_3(lv_ui *ui)
 
         // 药品三
         lv_obj_t * label_med3 = lv_label_create(ui->screen_3_cont_1);
-        lv_label_set_text(label_med3, "药");
-        lv_obj_set_style_text_font(label_med3, &lv_font_SourceHanSerifSC_Regular_20, 0);
+        lv_label_set_text(label_med3, "Mechine 3");
+        lv_obj_set_style_text_font(label_med3, &lv_font_montserrat_16, 0);
         lv_obj_set_pos(label_med3, 40, 220);
         
         lv_obj_t * btn_med3 = lv_btn_create(ui->screen_3_cont_1);

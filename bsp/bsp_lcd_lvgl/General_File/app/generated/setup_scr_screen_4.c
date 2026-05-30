@@ -58,7 +58,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_1, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_1, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_1, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_1, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_1, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -81,7 +81,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_2, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_2, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_2, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_2, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_2, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -104,7 +104,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_3, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_3, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_3, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_3, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_3, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -124,7 +124,7 @@ void setup_scr_screen_4(lv_ui *ui)
 
     //Write style for screen_4_ddlist_2, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_text_color(ui->screen_4_ddlist_2, lv_color_hex(0x0D3055), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_ddlist_2, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_ddlist_2, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_ddlist_2, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui->screen_4_ddlist_2, 1, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui->screen_4_ddlist_2, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -189,7 +189,7 @@ void setup_scr_screen_4(lv_ui *ui)
 
     //Write style for screen_4_ddlist_3, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_text_color(ui->screen_4_ddlist_3, lv_color_hex(0x0D3055), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_ddlist_3, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_ddlist_3, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_ddlist_3, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui->screen_4_ddlist_3, 1, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui->screen_4_ddlist_3, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -224,7 +224,7 @@ void setup_scr_screen_4(lv_ui *ui)
 
     lv_style_set_max_height(&style_screen_4_ddlist_3_extra_list_main_default, 90);
     lv_style_set_text_color(&style_screen_4_ddlist_3_extra_list_main_default, lv_color_hex(0x0D3055));
-    lv_style_set_text_font(&style_screen_4_ddlist_3_extra_list_main_default, &lv_font_montserratMedium_12);
+    lv_style_set_text_font(&style_screen_4_ddlist_3_extra_list_main_default, &lv_font_montserrat_16);
     lv_style_set_text_opa(&style_screen_4_ddlist_3_extra_list_main_default, 255);
     lv_style_set_border_width(&style_screen_4_ddlist_3_extra_list_main_default, 1);
     lv_style_set_border_opa(&style_screen_4_ddlist_3_extra_list_main_default, 255);
@@ -280,7 +280,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_21, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_21, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_21, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_21, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_21, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_21, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_21, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_21, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -303,7 +303,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_20, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_20, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_20, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_20, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_20, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_20, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_20, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_20, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -326,7 +326,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_19, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_19, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_19, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_19, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_19, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_19, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_19, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_19, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -349,7 +349,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_24, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_24, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_24, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_24, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_24, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_24, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_24, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_24, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -372,7 +372,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_23, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_23, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_23, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_23, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_23, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_23, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_23, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_23, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -395,7 +395,7 @@ void setup_scr_screen_4(lv_ui *ui)
     lv_obj_set_style_border_width(ui->screen_4_label_22, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_4_label_22, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui->screen_4_label_22, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_label_22, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_label_22, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_label_22, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_letter_space(ui->screen_4_label_22, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_line_space(ui->screen_4_label_22, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -415,7 +415,7 @@ void setup_scr_screen_4(lv_ui *ui)
 
     //Write style for screen_4_ddlist_4, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
     lv_obj_set_style_text_color(ui->screen_4_ddlist_4, lv_color_hex(0x0D3055), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_4_ddlist_4, &lv_font_montserratMedium_20, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_4_ddlist_4, &lv_font_montserrat_16, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui->screen_4_ddlist_4, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui->screen_4_ddlist_4, 1, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_border_opa(ui->screen_4_ddlist_4, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -450,7 +450,7 @@ void setup_scr_screen_4(lv_ui *ui)
 
     lv_style_set_max_height(&style_screen_4_ddlist_4_extra_list_main_default, 90);
     lv_style_set_text_color(&style_screen_4_ddlist_4_extra_list_main_default, lv_color_hex(0x0D3055));
-    lv_style_set_text_font(&style_screen_4_ddlist_4_extra_list_main_default, &lv_font_montserratMedium_12);
+    lv_style_set_text_font(&style_screen_4_ddlist_4_extra_list_main_default, &lv_font_montserrat_16);
     lv_style_set_text_opa(&style_screen_4_ddlist_4_extra_list_main_default, 255);
     lv_style_set_border_width(&style_screen_4_ddlist_4_extra_list_main_default, 1);
     lv_style_set_border_opa(&style_screen_4_ddlist_4_extra_list_main_default, 255);
