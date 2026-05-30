@@ -74,8 +74,7 @@ void ui_animation(void * var, int32_t duration, int32_t delay, int32_t start_val
 
 void init_scr_del_flag(lv_ui *ui)
 {
-    //ui->screen_del = false;
-    ui->screen_del = true;
+    ui->screen_del = false;     // 主屏保留对象，防止 guider_ui 指针变野
     ui->screen_1_del = true;
     ui->screen_2_del = true;
     ui->screen_3_del = true;

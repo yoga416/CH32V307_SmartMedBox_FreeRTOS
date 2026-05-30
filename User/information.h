@@ -129,6 +129,7 @@ void Add_History_BodyTemp(uint16_t temp);
 /*追加环境温湿度记录*/
 void Add_History_EnvTH(uint16_t temp, uint16_t humi);
 
-
+/* 检查漏服记录 */
+void check_missed_doses(void);
 
 #endif // __INFORMATION_H

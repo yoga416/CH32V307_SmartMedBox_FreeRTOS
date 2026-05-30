@@ -296,7 +296,7 @@ void EXTI15_10_IRQHandler(void)
             APP_LOG("Switched to user ID: %d\r\n", g_current_active_user_id);
             
              // 2. 更新界面显示（通过设置全局 UI 数据结构的标志位，让界面任务知道要刷新了）            
-            g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_USER_STEP;
+           g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_USER_STEP;
             
             // 3. 测试自动保存：切完人立刻把当前人的配置写进他独立的 Flash 扇区
             //SystemData_Save_To_Flash_ByUser(g_current_active_user_id);

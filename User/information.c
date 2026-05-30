@@ -63,10 +63,11 @@ void SystemData_Init_Load(void)
             }
         }
 
-        /* 兼容老数据修正：漏服记录最多只看 4 条 */
-        if (g_ui_data[uid].record_count > 4) {
-            g_ui_data[uid].record_count = 4;
-        }
+        /* 兼容老数据修正：记录数量范围校验，防止 Flash 脏数据导致数组越界 */
+        if (g_ui_data[uid].record_count > MAX_HISTORY) g_ui_data[uid].record_count = 0;
+        if (g_ui_data[uid].hr_count > MAX_HISTORY)     g_ui_data[uid].hr_count = 0;
+        if (g_ui_data[uid].bt_count > MAX_HISTORY)     g_ui_data[uid].bt_count = 0;
+        if (g_ui_data[uid].env_count > MAX_HISTORY)    g_ui_data[uid].env_count = 0;
 
         // 3. 如果在整个扇区里都没找到有效数据 (说明该用户的扇区是首次使用的空片)
         if (!found) {
@@ -87,14 +88,14 @@ void SystemData_Init_Load(void)
             current_flash_offset[uid] = 0;
         }
         
-        // 4. 【重要逻辑调整】：不再用单组 my_meds 强行覆盖已经读出来的、属于不同用户的独立时间！
-        // 如果需要让任务层知道当前选中的 0 号用户的时间，可以在循环外单独对齐：
-        for(int i = 0; i < MAX_USER; i++) {
-        for(int j = 0; j < MAX_SCHE; j++) {
-            g_ui_data[i].meds_schedule[j].hour=my_meds[j].hour;
-            g_ui_data[i].meds_schedule[j].min=my_meds[j].min;
-        }
-    }
+    //     // 4. 【重要逻辑调整】：不再用单组 my_meds 强行覆盖已经读出来的、属于不同用户的独立时间！
+    //     // 如果需要让任务层知道当前选中的 0 号用户的时间，可以在循环外单独对齐：
+    //     for(int i = 0; i < MAX_USER; i++) {
+    //     for(int j = 0; j < MAX_SCHE; j++) {
+    //         g_ui_data[i].meds_schedule[j].hour=my_meds[j].hour;
+    //         g_ui_data[i].meds_schedule[j].min=my_meds[j].min;
+    //     }
+    // }
         // 开机强制刷新该用户对应的整个 UI 标志位
         g_ui_data[uid].update_flags = 0xFFFFFFFF; 
     }
