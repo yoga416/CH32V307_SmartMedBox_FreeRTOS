@@ -12,13 +12,15 @@
 #include <stdlib.h>
 #include "lvgl.h"
 #include "information.h"
-
+#include "../bsp/bsp_tianwen/bsp_tianwen_reg.h"
+#include "app_task.h"    // UI_FLAG_MED_STATUS 等标志定义
 #if LV_USE_GUIDER_SIMULATOR && LV_USE_FREEMASTER
 #include "freemaster_client.h"
 #endif
 
 /*药品在最开始的时候没有数据*/
 extern AlarmSche my_meds[3];
+extern QueueHandle_t sendtianwenQueue; // 天问通信命令队列
 /* * 统一的全局指针清理函数
  * 每次离开当前屏幕前调用此函数，彻底切断所有旧控件与后台任务的联系，防止野指针导致的 HardFault 
  */
@@ -166,12 +168,22 @@ static void screen_1_btn_1_event_handler (lv_event_t *e)
 
 static void screen_1_btn_2_event_handler (lv_event_t *e)
 {
+    Tianwen_Packet_t tw_pkt;
     lv_event_code_t code = lv_event_get_code(e);
     switch (code) {
     case LV_EVENT_CLICKED:
     {
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_3, guider_ui.screen_3_del, &guider_ui.screen_1_del, setup_scr_screen_3, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
+        
+        /*检查是否到吃药时间*/
+        if(g_ui_data[g_current_active_user_id].screen_3_update_step==false)
+        {
+             /*发送数据帧给天问模块*/
+             APP_LOG("[UI] Sending command to Tianwen: Time to eat\n");
+            tw_pkt.id = CMD_TX_NOT_TIME_TO_EAT; // 确保在头文件中定义了这个宏
+            xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
+        }
         break;
     }
     default:

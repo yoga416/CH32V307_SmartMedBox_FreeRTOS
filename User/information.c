@@ -236,14 +236,16 @@ void check_missed_doses(void){
             return;
         }
         recorded_minute[idx] = current_time.min;
-
-        /*发送短信漏服提醒*/
-        char sms_text[64];
-        snprintf(sms_text, sizeof(sms_text), "您有药物[%d]未按时服用，请及时服药！", idx + 1);
-        A7670C_SendSMS_Auto("18135183446", sms_text);
+            /* 记录漏服：追加到漏服记录里，并保存到 Flash */
         snprintf(date_str, sizeof(date_str), "%02d-%02d", current_time.month, current_time.day);
         snprintf(time_str, sizeof(time_str), "%02d:%02d", my_meds[idx].hour, my_meds[idx].min);
         Add_Missed_Record((uint32_t)idx, date_str, time_str);
+
+        APP_LOG("SEND MEDICATION REMINDER: Missed dose #%d at %02d:%02d on %02d-%02d\n", idx + 1,
+             current_time.hour, current_time.min, current_time.month, current_time.day);
+        // char sms_text[64];
+        // snprintf(sms_text, sizeof(sms_text), "您今天第%d次药物未按时服用，请及时服药！", idx + 1);
+        // A7670C_SendSMS_Auto("18135183446", sms_text);
     }
     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
 }

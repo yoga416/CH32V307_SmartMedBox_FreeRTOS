@@ -36,6 +36,7 @@ void tianwen_task(void *pvParameters)
     uint8_t parse_state = 0;
     uint8_t current_cmd = 0;
     uint16_t time=0;
+    AppMsg_t msg;
     for(;;)
     {
         // 阻塞等待串口队列中的数据。portMAX_DELAY 表示如果没有数据，任务就挂起不占CPU
@@ -72,7 +73,10 @@ void tianwen_task(void *pvParameters)
                         switch(current_cmd)
                         {
                             case CMD_FACE_RECOG://（人脸识别）- 暂不可用，跳过
-                                APP_LOG("[Voice Cmd] Face recognition (skipped, no camera)\n");
+                                /*发送数据帧到app*/
+                                APP_LOG("[Voice Cmd] Start face recognition\n");
+                                msg.event_id = MSG_FACE_RECOG_START;
+                                xQueueSend(xAppEventQueue, &msg, 0);
                                 break;
 
                             case CMD_MEASURE://（环境温湿度）
@@ -94,8 +98,9 @@ void tianwen_task(void *pvParameters)
                                 break;
 
                             case CMD_FACE_ADD://（人脸添加）
-                                APP_LOG("[Voice Cmd] Add face\n");
-                                xSemaphoreGive(xSem_face_add);
+                                APP_LOG("[Voice Cmd] Start face add\n");
+                                 msg.event_id = MSG_FACE_ADD_START;
+                                xQueueSend(xAppEventQueue, &msg, 0);
                                 break;
 
                             default:// 未知指令
@@ -203,11 +208,11 @@ void tianwen_task(void *pvParameters)
                   }
                   if(tianwen_packet.id == CMD_TX_NOT_TIME_TO_EAT)
                   {
-                      printf("[Tianwen Task] Sent not time to eat command to Tianwen module\n");
+                      printf("[Tianwen Task] mechine is not time to eat\n");
                   }
                   if(tianwen_packet.id == CMD_TX_TIME_TO_EAT)
                   {
-                      printf("[Tianwen Task] Sent time to eat command to Tianwen module\n");
+                      printf("[Tianwen Task] mechine is time to eat.");
                   }
          }
         } // end if(sendtianwenQueue)

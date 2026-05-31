@@ -33,6 +33,8 @@ typedef struct
 	lv_obj_t *screen_btn_1;//按键（next）
 	lv_obj_t *screen_btn_1_label;//按键next文本
 	lv_obj_t *screen_label_3;//时间标签（年月日）
+
+	
 	lv_obj_t *screen_1;//屏幕1
 	bool screen_1_del;//屏幕1删除标志
 	lv_obj_t *screen_1_cont_1;//屏幕1容器

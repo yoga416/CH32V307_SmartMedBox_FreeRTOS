@@ -128,7 +128,7 @@ void app_task(void *pvParameters)
                     msg_K20.payload[1] = 0x5A; // 结果：注册失败(0x03)/识别失败(0x00)，注册成功(0x00)/识别成功(0x01)
                     msg_K20.payload[2] = 0x5A; // 用户ID 0x00//0x01/0x02...
                     FR_SendPacket((FR_packet_t *)&msg_K20); 
-
+                    break;
                case MSG_FACE_RECOG_SUCCESS:// 人脸识别成功事件
                     /*切换用户前，保存旧用户的数据*/
                     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
@@ -256,7 +256,7 @@ void sensor_lcd_task(void *pvParameters)
 
         // 每10秒检查一次是否漏服
         current_tick = xTaskGetTickCount();
-        if ((current_tick - last_miss_check_tick) >= pdMS_TO_TICKS(10000)) {
+        if ((current_tick - last_miss_check_tick) >= pdMS_TO_TICKS(1000)) {
             check_missed_doses();
             last_miss_check_tick = current_tick;
         }
@@ -532,9 +532,9 @@ void sensor_lcd_task(void *pvParameters)
         }
 
         /*检查是否到吃药时间刷新*/
-        /*每10秒检查一次*/
-       // 每 10 秒无阻塞触发一次药盒检查
-        if (xTaskGetTickCount() - last_check_mechine_time >= pdMS_TO_TICKS(10000)) {
+        /*每1秒检查一次*/
+       // 每 1秒无阻塞触发一次药盒检查
+        if (xTaskGetTickCount() - last_check_mechine_time >= pdMS_TO_TICKS(1000)) {
             check_medication_time();
             last_check_mechine_time = xTaskGetTickCount(); // 更新上一次检查的时间
         }
@@ -835,8 +835,8 @@ void check_medication_time(void) {
         if (diff_mins > 12 * 60) diff_mins -= 24 * 60;
         else if (diff_mins < -12 * 60) diff_mins += 24 * 60;
         
-        // 只要查到有一顿药在 +/-1 分钟内
-        if (diff_mins >= -1 && diff_mins <= 1) {
+        // 只要查到有一顿药在 +/-10 分钟内
+        if (diff_mins >= -10 && diff_mins <= 10) {
             is_time_to_eat = 1; 
             active_med_idx = i; // 把当前触发的这顿药的编号记下来
             break; 
@@ -867,7 +867,11 @@ void check_medication_time(void) {
             last_reset_day = current_time.day;
 
              g_ui_data[g_current_active_user_id].screen_3_update_step = true;  
-            tw_pkt.id = CMD_TX_TIME_TO_EAT; 
+            // ============ 【修改在这里】 ============
+            // 只有刚刚进入吃药时间的那一刻，才自动发数据帧让天问播报
+            APP_LOG("[Medication Time] It's time to take medicine #%d! Resetting status and triggering voice reminder.\n", active_med_idx + 1);
+            tw_pkt.id = CMD_TX_TIME_TO_EAT; // 确保在头文件中定义了这个宏
+            xQueueSend(sendtianwenQueue, &tw_pkt, 0);
         }
 
         // 下面这些 UI 刷新和语音指令，依然每次都执行，保证在这 3 分钟内屏幕一直停留在吃药界面
