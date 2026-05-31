@@ -13,7 +13,7 @@ SemaphoreHandle_t xSem_MAX30102_Exti = NULL;
 // 定义一个静态重试计数器
 static uint8_t s_hr_retry_count = 0; 
 // 最大重试次数
-#define MAX_HR_RETRIES 7
+#define MAX_HR_RETRIES 2
 
 // 定义滑动滤波窗口大小（建议 3 到 5，数值越大越平滑但响应越慢）
 #define HR_SPO2_FILTER_SIZE 3
@@ -475,10 +475,10 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
             s_hr_retry_count++;
             APP_LOG("[MAX30102] renew starting! (%d/%d)\n", s_hr_retry_count, MAX_HR_RETRIES);
 
-            // 在第 4 次失败后，尝试重启（重新初始化）传感器
-            if (s_hr_retry_count == 4) {
-                APP_LOG("[MAX30102] 4th failure reached, rebooting sensor...\r\n");
-                g_max30102.pf_init(&g_max30102); 
+            // 在第 7 次失败后，尝试重启（重新初始化）传感器
+            if (s_hr_retry_count == 2) {
+                APP_LOG("[MAX30102] 2nd failure reached, end \r\n");
+  
             }
 
             /*等待2秒*/

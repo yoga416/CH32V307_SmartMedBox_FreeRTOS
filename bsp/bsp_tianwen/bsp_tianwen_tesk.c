@@ -79,12 +79,6 @@ void tianwen_task(void *pvParameters)
                                 xQueueSend(xAppEventQueue, &msg, 0);
                                 break;
 
-                            case CMD_MEASURE://（环境温湿度）
-                                 APP_LOG("[Voice Cmd] Measure environment temperature & humidity\n");
-                                test_cmd = CMD_MEASURE_ENV_TEMP_HUMI;
-                                xQueueSend(xSysCmdQueue, &test_cmd, 0);
-                                break;
-
                             case CMD_TEMP_MEASURE://（体温测量）
                                 APP_LOG("[Voice Cmd] Measure body temperature\n");
                                 test_cmd = CMD_MEASURE_BODY_TEMP;

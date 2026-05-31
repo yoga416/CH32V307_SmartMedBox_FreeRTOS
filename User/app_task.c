@@ -818,11 +818,8 @@ void check_medication_time(void) {
     
     int16_t curr_total_mins = current_time.hour * 60 + current_time.min;
     
-    Tianwen_Packet_t tw_pkt;
-    tw_pkt.data_len = 0;
-    
     uint8_t is_time_to_eat = 0; 
-    int8_t active_med_idx = -1; // 新增：记录当前是哪一顿药触发了时间
+    int8_t active_med_idx = -1; // 记录当前是哪一顿药触发了时间
     
     //APP_LOG("[App] Checking medication time... Current time: %02d:%02d\n", current_time.hour, current_time.min);
     
@@ -844,11 +841,11 @@ void check_medication_time(void) {
     }
     
     if (is_time_to_eat) {
-        // 新增：使用静态变量记录上一次重置状态的【日期】和【药品索引】
+        // 使用静态变量记录上一次重置状态的【日期】和【药品索引】
         static int8_t last_reset_med_idx = -1;
         static uint8_t last_reset_day = 0xFF;
 
-        // 核心判断：如果今天还没有为这顿药重置过状态，才执行重置和存 Flash
+        // 核心判断：如果今天还没有为这顿药重置过状态，才执行重置、存 Flash、播报语音
         if (last_reset_day != current_time.day || last_reset_med_idx != active_med_idx) {
             
             g_ui_data[g_current_active_user_id].meds_completed[0] = 0;
@@ -862,24 +859,20 @@ void check_medication_time(void) {
             /*并保存到Flash*/
             SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
             
-            // 更新记录，打上“已处理”的标签
+            // 更新记录，打上"已处理"的标签
             last_reset_med_idx = active_med_idx;
             last_reset_day = current_time.day;
 
-             g_ui_data[g_current_active_user_id].screen_3_update_step = true;  
-            // ============ 【修改在这里】 ============
-            // 只有刚刚进入吃药时间的那一刻，才自动发数据帧让天问播报
-            APP_LOG("[Medication Time] It's time to take medicine #%d! Resetting status and triggering voice reminder.\n", active_med_idx + 1);
-            tw_pkt.id = CMD_TX_TIME_TO_EAT; // 确保在头文件中定义了这个宏
-            xQueueSend(sendtianwenQueue, &tw_pkt, 0);
+            g_ui_data[g_current_active_user_id].screen_3_update_step = true;  
+            
+            // // 只有刚刚进入吃药时间的那一刻，才自动发数据帧让天问播报
+            // Tianwen_Packet_t tw_pkt = {0};
+            // tw_pkt.id = CMD_TX_TIME_TO_EAT;
+            // xQueueSend(sendtianwenQueue, &tw_pkt, 0);
+            // APP_LOG("[Medication Time] It's time to take medicine #%d! Resetting status and triggering voice reminder.\n", active_med_idx + 1);
         }
-
-        // 下面这些 UI 刷新和语音指令，依然每次都执行，保证在这 3 分钟内屏幕一直停留在吃药界面
        
     } else {
         g_ui_data[g_current_active_user_id].screen_3_update_step = false;  
     }
-    
-    // 统一发送一次队列消息
-    xQueueSend(sendtianwenQueue, &tw_pkt, 0); 
 }

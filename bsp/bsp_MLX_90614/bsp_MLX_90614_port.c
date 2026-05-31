@@ -182,18 +182,16 @@ void MLX90614_Port_OnDataReady(float *surface_temp, float *body_temp)
     }
     body_temp_x100 = (int16_t)(*body_temp * 100.0f);
     APP_LOG("[MLX90614] Body=%ld\r\n", (long)body_temp_x100);
-   // 发送给天问通信任务
+
+   // 发送给天问通信任务（小端发送）
     Tianwen_Packet_t tianwen_packet;
     tianwen_packet.id = SENSOR_ID_MLX_TEMP_BOTH;
-    tianwen_packet.data_len = 2; // 4字节表面温度 + 4字节人体温度
-   memcpy(&tianwen_packet.data[0], &body_temp_x100, 2); // 只发送体温，表面温度暂不发送
+    tianwen_packet.data_len = 2; // 只发送体温，表面温度暂不发送
+    memcpy(&tianwen_packet.data[0], &body_temp_x100, 2); // 只发送体温，表面温度暂不发送
      if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
         printf("[MLX90614] Failed to send data to Tianwen queue!\r\n");
     }
 
-    if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
-        printf("[MLX90614] Failed to send data to Tianwen queue!\r\n");
-    }
     // 同时发送到 LCD 显示队列 (保持兼容性)
     if (xQueueSend(sensor_data_lcd_queue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
         printf("[MLX90614] Failed to send data to LCD queue!\r\n");

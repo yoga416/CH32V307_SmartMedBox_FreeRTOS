@@ -241,10 +241,10 @@ tianwen_packet.data[1] = (uint8_t)(temp_x100 & 0xFF); // 温度低8位[cite: 2]
 tianwen_packet.data[2] = (uint8_t)(hum_x100 >> 8);    // 湿度高8位[cite: 2]
 tianwen_packet.data[3] = (uint8_t)(hum_x100 & 0xFF);  // 湿度低8位[cite: 2]
 
-// 发送到天问通信队列
-if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
-    printf("[ERROR] Failed to send data to sendtianwenQueue!\n");
-}
+// // 发送到天问通信队列
+// if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
+//     printf("[ERROR] Failed to send data to sendtianwenQueue!\n");
+// }
 //发送到 LCD 显示队列 (保持兼容性)
 if (xQueueSend(sensor_data_lcd_queue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
     printf("[ERROR] Failed to send data to sensor_data_lcd_queue!\n");
