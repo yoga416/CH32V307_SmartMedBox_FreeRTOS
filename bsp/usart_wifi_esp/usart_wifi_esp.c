@@ -33,20 +33,20 @@ usart_wifi_esp_Status_t USART_WIFI_ESP_Send(const Packet_t *packet)
 {
     if (packet == NULL) return USART_WIFI_ESP_ERROR;
 
-    // 静态缓冲区，防止 DMA 传输时内存失效
-    static uint8_t tx_dma_buffer[MAX_PAYLOAD_LEN + 5]; 
+    static uint8_t tx_dma_buffer[MAX_PAYLOAD_LEN + 6]; // 增加1字节余量
     uint16_t tx_len = 0;
 
     tx_dma_buffer[tx_len++] = PACKET_HEAD_VAL; // 0x5A
     tx_dma_buffer[tx_len++] = packet->data_len;
     tx_dma_buffer[tx_len++] = packet->sensor_id;
+    tx_dma_buffer[tx_len++] = packet->user_id; // 【新增】压入 User ID
     
     if (packet->data_len > 0 && packet->data_len <= MAX_PAYLOAD_LEN) {
         memcpy(&tx_dma_buffer[tx_len], packet->payload, packet->data_len);
         tx_len += packet->data_len;
     }
 
-    // 计算 CRC8 (从 Length 开始校验)
+    // 计算 CRC8 (从 Length 开始校验，长度为 tx_len - 1)
     tx_dma_buffer[tx_len] = bsp_utils_calc_crc8(&tx_dma_buffer[1], tx_len - 1);
     tx_len++;
 

@@ -76,6 +76,33 @@ TaskHandle_t tianwenTask_Handler;
 TaskHandle_t lcdTask_Handler; // 如果有 LCD 任务的话
 
 
+// 2. 建立一二线城市映射表 (全局常量，存放在 Flash 中节省 RAM)
+const CityMap city_map[] = {
+    // 【一线城市】
+    {"北京", "Beijing"}, {"上海", "Shanghai"}, {"广州", "Guangzhou"}, {"深圳", "Shenzhen"},
+
+    // 【新一线城市】
+    {"成都", "Chengdu"}, {"重庆", "Chongqing"}, {"杭州", "Hangzhou"}, {"武汉", "Wuhan"},
+    {"西安", "Xi'an"},   {"郑州", "Zhengzhou"}, {"青岛", "Qingdao"},  {"长沙", "Changsha"},
+    {"天津", "Tianjin"}, {"苏州", "Suzhou"},    {"南京", "Nanjing"},  {"东莞", "Dongguan"},
+    {"沈阳", "Shenyang"},{"合肥", "Hefei"},     {"佛山", "Foshan"},
+
+    // 【二线城市】(华北/东北/西北)
+    {"太原", "Taiyuan"}, {"石家庄", "Shijiazhuang"}, {"济南", "Jinan"}, {"大连", "Dalian"},
+    {"哈尔滨", "Harbin"},{"长春", "Changchun"},   {"兰州", "Lanzhou"}, {"银川", "Yinchuan"},
+    {"保定", "Baoding"}, {"廊坊", "Langfang"},    {"烟台", "Yantai"},  {"潍坊", "Weifang"},
+    {"临沂", "Linyi"},   {"呼和浩特", "Hohhot"},
+
+    // 【二线城市】(华东)
+    {"宁波", "Ningbo"},  {"福州", "Fuzhou"},      {"无锡", "Wuxi"},    {"厦门", "Xiamen"},
+    {"温州", "Wenzhou"}, {"泉州", "Quanzhou"},    {"南昌", "Nanchang"},{"金华", "Jinhua"},
+    {"常州", "Changzhou"},{"嘉兴", "Jiaxing"},    {"南通", "Nantong"}, {"徐州", "Xuzhou"},
+    {"台州", "Taizhou"}, {"绍兴", "Shaoxing"},    {"扬州", "Yangzhou"},{"盐城", "Yancheng"},
+
+    // 【二线城市】(华南/西南)
+    {"昆明", "Kunming"}, {"南宁", "Nanning"},     {"贵阳", "Guiyang"}, {"珠海", "Zhuhai"},
+    {"中山", "Zhongshan"},{"惠州", "Huizhou"},    {"海口", "Haikou"},  {"三亚", "Sanya"}
+};
  extern volatile uint8_t a7670c_ready; // 在A7670C初始化完成后置1
  extern SystemCommand_t received_cmd;
  extern AlarmSche my_meds[3]; // 从 bsp_rtc.h 中 extern 引入吃药时间表
@@ -87,7 +114,7 @@ FR_packet_t rx_pkt;
  static TickType_t last_check_mechine_time = 0;
 
 void check_medication_time(void); // 声明检查吃药时间的函数
-
+const char* convert_city_to_english(const char* chinese_name); // 声明城市名转换函数
 void app_task(void *pvParameters)
 {
 //主函数。逻辑函数，根据系统指令执行相应的操作
@@ -684,25 +711,30 @@ void usart_task(void *pvParameters)
             }
 
             
-            /*位置同步*/
-if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 8)
+    /*位置同步*/
+if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 2)
 {
     char city_name[32] = {0};  // 临时缓冲区更大一些
     
-    // 限制复制长度
+    // 限制复制长度 (这里拿到的还是中文，比如 "太原")
     size_t copy_len = (rx_packet.data_len < sizeof(city_name) - 1) ? 
                       rx_packet.data_len : sizeof(city_name) - 1;
     
     memcpy(city_name, rx_packet.payload, copy_len);
     city_name[copy_len] = '\0';
     
-    // 安全复制到全局数据
-    strncpy(g_ui_data[g_current_active_user_id].city_name, city_name, 
+    // ================= 新增转换逻辑 =================
+    // 将拿到的中文城市名丢进函数，获取英文拼音
+    const char* english_city = convert_city_to_english(city_name);
+    // ================================================
+    
+    // 安全复制到全局数据 (此时复制进去的是 "Taiyuan")
+    strncpy(g_ui_data[g_current_active_user_id].city_name, english_city, 
             sizeof(g_ui_data[g_current_active_user_id].city_name) - 1);
     g_ui_data[g_current_active_user_id].city_name[sizeof(g_ui_data[g_current_active_user_id].city_name) - 1] = '\0';
     
     APP_LOG("[Location Sync] City updated to: %s\n", 
-            g_ui_data[g_current_active_user_id].city_name);
+    g_ui_data[g_current_active_user_id].city_name);
     
     g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_CITY;
 }
@@ -832,8 +864,8 @@ void check_medication_time(void) {
         if (diff_mins > 12 * 60) diff_mins -= 24 * 60;
         else if (diff_mins < -12 * 60) diff_mins += 24 * 60;
         
-        // 只要查到有一顿药在 +/-10 分钟内
-        if (diff_mins >= -10 && diff_mins <= 10) {
+        //APP_LOG("[App] Checking med #%d: target time %02d:%02d, diff_mins = %d\n", i+1, my_meds[i].hour, my_meds[i].min, diff_m
+        if (diff_mins >= -10 &&diff_mins <= 0) { // 当前时间在吃药时间的前10分钟到吃药时间之间
             is_time_to_eat = 1; 
             active_med_idx = i; // 把当前触发的这顿药的编号记下来
             break; 
@@ -875,4 +907,55 @@ void check_medication_time(void) {
     } else {
         g_ui_data[g_current_active_user_id].screen_3_update_step = false;  
     }
+}
+
+
+void Send_Missed_Medication_Record(uint8_t user_id, uint8_t med_idx, 
+                                   uint8_t year, uint8_t month, uint8_t day, 
+                                   uint8_t hour, uint8_t min, uint8_t sec)
+{
+    Packet_t pkt;
+    
+    // 1. 填充帧头信息
+    pkt.data_len = 7;                            // 负载长度：1字节顿数 + 6字节时间戳
+    pkt.sensor_id = CMD_UPLOAD_MISSED_MED;       // 指令/命令ID：0x20 (漏服)
+    pkt.user_id = user_id+1;                       // 当前数据归属的用户ID
+    
+    // 2. 组装 Payload (数据负载)
+    pkt.payload[0] = med_idx;                    // 漏服的顿数
+    pkt.payload[1] = year;                       // 年
+    pkt.payload[2] = month;                      // 月
+    pkt.payload[3] = day;                        // 日
+    pkt.payload[4] = hour;                       // 时
+    pkt.payload[5] = min;                        // 分
+    pkt.payload[6] = sec;                        // 秒
+    
+    // 3. 发送给 ESP32
+    // 方式A: 直接调用底层串口/DMA发送 (会在此处阻塞等待发送完成)
+    USART_WIFI_ESP_Send(&pkt); 
+    
+    // 方式B: 推荐做法！压入 RingBuffer，由专用的 usart_task 异步发送，不阻塞当前任务
+    // RingBuffer_push(&g_ring_buffer, &pkt);
+}
+
+// 3. 核心查找函数
+const char* convert_city_to_english(const char* chinese_name) {
+    // 安全校验：防止传入空指针导致单片机死机崩溃
+    if (chinese_name == NULL) {
+        return "Unknown";
+    }
+
+    // 计算数组中共有多少个城市
+    int map_size = sizeof(city_map) / sizeof(city_map[0]);
+
+    // 遍历字典查找匹配项
+    for (int i = 0; i < map_size; i++) {
+        // 使用 strstr 兼容网络返回的 "北京市" 或 "北京"
+        if (strstr(chinese_name, city_map[i].zh) != NULL) {
+            return city_map[i].en;
+        }
+    }
+
+    // 如果遍历完都没有找到匹配的，返回默认兜底英文字符串
+    return "Unknown City"; 
 }

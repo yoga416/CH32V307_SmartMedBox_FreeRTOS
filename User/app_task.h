@@ -91,6 +91,11 @@ typedef struct {
     uint8_t       data[4];       // 预留参数，比如可以用来传错误码或者特定的数值
 } AppMsg_t;
 
+// 1. 定义城市映射字典的结构体
+typedef struct {
+    const char* zh;
+    const char* en;
+} CityMap;
 
 
 /*esp32数据帧id号*/
@@ -119,4 +124,7 @@ void vApplicationMallocFailedHook(void);
 /* watchdog task */
 void watchdog_task(void *pvParameters);
 
+void Send_Missed_Medication_Record(uint8_t user_id, uint8_t med_idx, 
+                                   uint8_t year, uint8_t month, uint8_t day, 
+                                   uint8_t hour, uint8_t min, uint8_t sec);
 #endif /* __APP_TASK_H */

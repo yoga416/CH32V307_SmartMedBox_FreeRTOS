@@ -22,7 +22,7 @@ static uint8_t s_hr_retry_count = 0;
 static int32_t g_hr_history[HR_SPO2_FILTER_SIZE] = {0};
 static float   g_spo2_history[HR_SPO2_FILTER_SIZE] = {0.0f};
 static uint8_t g_filter_idx = 0;
-
+extern uint8_t g_current_active_user_id; // 当前活跃用户ID
 // 在文件上方定义超时阈值
 #define I2C_TIMEOUT_MAX 50000
 
@@ -446,6 +446,7 @@ void on_hr_spo2_calculated(int32_t hr, int8_t hr_valid, float spo2, int8_t spo2_
 
         // 设定新协议字段
         packet.sensor_id = SENSOR_ID_HEART_RATE_SPO2; // 推荐定义一个新的 ID 0x04
+        packet.user_id   =g_current_active_user_id+1 ; // 当前活跃用户ID
         packet.data_len  = 4; // 心率(2字节) + 血氧(2字节) = 4字节
 
         // 将数据拷贝到 payload 缓冲区 (注意小端序)

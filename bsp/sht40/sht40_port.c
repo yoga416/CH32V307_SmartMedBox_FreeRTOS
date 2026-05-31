@@ -18,7 +18,7 @@
 
 static th_handler_input_interface_t sht40_config;
 static bsp_sht40_driver_t g_sht40_driver;
-
+extern uint8_t g_current_active_user_id; // 当前活跃用户ID
 static void OS_Delay_Ms_Wrapper(uint32_t const ms)
 {
    
@@ -241,10 +241,6 @@ tianwen_packet.data[1] = (uint8_t)(temp_x100 & 0xFF); // 温度低8位[cite: 2]
 tianwen_packet.data[2] = (uint8_t)(hum_x100 >> 8);    // 湿度高8位[cite: 2]
 tianwen_packet.data[3] = (uint8_t)(hum_x100 & 0xFF);  // 湿度低8位[cite: 2]
 
-// // 发送到天问通信队列
-// if (xQueueSend(sendtianwenQueue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
-//     printf("[ERROR] Failed to send data to sendtianwenQueue!\n");
-// }
 //发送到 LCD 显示队列 (保持兼容性)
 if (xQueueSend(sensor_data_lcd_queue, &tianwen_packet, pdMS_TO_TICKS(100)) != pdTRUE) {
     printf("[ERROR] Failed to send data to sensor_data_lcd_queue!\n");
@@ -254,6 +250,7 @@ if (xQueueSend(sensor_data_lcd_queue, &tianwen_packet, pdMS_TO_TICKS(100)) != pd
         //发送到环形缓冲区（esp8266 USART 任务消费）
         Packet_t packet_sht;
         packet_sht.sensor_id = SENSOR_ID_TEMPERATURE_HUMIDITY;
+        packet_sht.user_id = g_current_active_user_id+1; // 当前活跃用户ID
         packet_sht.data_len = sizeof(int32_t) * 2;
         memcpy(packet_sht.payload, &temp_x100, sizeof(int32_t));
         memcpy(packet_sht.payload + sizeof(int32_t), &hum_x100, sizeof(int32_t));   

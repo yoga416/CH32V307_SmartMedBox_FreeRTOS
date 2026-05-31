@@ -16,10 +16,12 @@
 #define SENSOR_ID_MLX_OBJECT_TEMP               0x02
 #define SENSOR_ID_MLX_TEMP_BOTH                 0x03 // MLX90614 同时发送环境温度和物体温度
 #define SENSOR_ID_HEART_RATE_SPO2               0x04 // 建议心率和血氧打包成一个结构发送
+#define CMD_UPLOAD_MISSED_MED                   0x20 // 新增：漏服记录上传
 
 // 新版应用层数据包结构 (存入 RingBuffer 的纯净数据，不含帧头尾)
 typedef struct {
     uint8_t sensor_id;                 // 传感器ID
+    uint8_t user_id;                   // 用户ID，预留字段，当前版本固定为0
     uint8_t data_len;                  // payload 实际有效长度
     uint8_t payload[MAX_PAYLOAD_LEN];  // 数据净荷区
 } Packet_t;

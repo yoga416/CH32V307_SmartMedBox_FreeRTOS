@@ -201,6 +201,7 @@ void MLX90614_Port_OnDataReady(float *surface_temp, float *body_temp)
     memset(&packet, 0x00, sizeof(Packet_t));
 
     packet.sensor_id = SENSOR_ID_MLX_TEMP_BOTH; 
+    packet.user_id   = g_current_active_user_id+1; // 当前版本固定为0，未来可以根据实际需求设置不同用户ID
     packet.data_len  = 8; 
 
     memcpy(&packet.payload[0], &surface_temp_x100, 4);

@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include "information.h"
 #include "../bsp/bsp_a7670c/bsp_a7670c.h"
-
+#include "Middle_ring_buffer.h"
+#include "app_task.h"
+#include "bsp_rtc.h"
 #define DATA_SECTOR_ADDR  0x7F8000
 #define SECTOR_SIZE       4096
 // 移除了原来的 DEFAULT_ALARM 固定数组，统一使用 my_meds 管理
@@ -236,16 +238,22 @@ void check_missed_doses(void){
             return;
         }
         recorded_minute[idx] = current_time.min;
-            /* 记录漏服：追加到漏服记录里，并保存到 Flash */
+        /* 记录漏服：追加到漏服记录里，并保存到 Flash */
         snprintf(date_str, sizeof(date_str), "%02d-%02d", current_time.month, current_time.day);
         snprintf(time_str, sizeof(time_str), "%02d:%02d", my_meds[idx].hour, my_meds[idx].min);
         Add_Missed_Record((uint32_t)idx, date_str, time_str);
+
+        /*上传漏服记录*/
+        Send_Missed_Medication_Record(g_current_active_user_id, idx, 
+                                   current_time.year - 2000, current_time.month, current_time.day, 
+                                   current_time.hour, current_time.min, current_time.sec);
 
         APP_LOG("SEND MEDICATION REMINDER: Missed dose #%d at %02d:%02d on %02d-%02d\n", idx + 1,
              current_time.hour, current_time.min, current_time.month, current_time.day);
         // char sms_text[64];
         // snprintf(sms_text, sizeof(sms_text), "您今天第%d次药物未按时服用，请及时服药！", idx + 1);
         // A7670C_SendSMS_Auto("18135183446", sms_text);
+
     }
     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
 }
