@@ -154,7 +154,6 @@ static void screen_1_btn_1_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        /* 强制标记所有 UI 需刷新（解决进入记录页后不显示旧数据的问题） */
         g_ui_data[g_current_active_user_id].update_flags = 0xFFFFFFFF;
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_2, guider_ui.screen_2_del, &guider_ui.screen_1_del, setup_scr_screen_2, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
@@ -186,7 +185,6 @@ static void screen_1_btn_3_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        /* 强制标记所有 UI 需刷新 */
         g_ui_data[g_current_active_user_id].update_flags = 0xFFFFFFFF;
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_4, guider_ui.screen_4_del, &guider_ui.screen_1_del, setup_scr_screen_4, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);
@@ -203,7 +201,6 @@ static void screen_1_btn_4_event_handler (lv_event_t *e)
     switch (code) {
     case LV_EVENT_CLICKED:
     {
-        /* 强制标记所有 UI 需刷新 */
         g_ui_data[g_current_active_user_id].update_flags = 0xFFFFFFFF;
         clear_all_old_pointers();
         ui_load_scr_animation(&guider_ui, &guider_ui.screen, guider_ui.screen_del, &guider_ui.screen_1_del, setup_scr_screen, LV_SCR_LOAD_ANIM_NONE, 200, 200, true, true);

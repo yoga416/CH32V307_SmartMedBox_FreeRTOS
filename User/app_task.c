@@ -107,9 +107,9 @@ void app_task(void *pvParameters)
     ///BSP_RTC_UpdateNextAlarm(); // 根据 my_meds 数组设置第一个闹钟
 
     //定义一个变量来跟踪当前检查的吃药时间索引
-   AppMsg_t msg;
+    AppMsg_t msg;
     AppMsg_t msg_FR;
-    // uint32_t last_time = 0; // 移除未使用的变量
+    FR_packet_t msg_K20;
     for (;;)
     {
        
@@ -122,15 +122,16 @@ void app_task(void *pvParameters)
             {
                 case MSG_FACE_RECOG_START:// 人脸识别开始事件
                     APP_LOG("[App] Event: Face recognition started\n");
-                    // 模拟：给系统自己发一个成功事件（实战中这应该由串口中断发）
-                    // AppMsg_t sim_msg = { .event_id = MSG_FACE_RECOG_SUCCESS };
-                    // xQueueSend(xAppEventQueue, &sim_msg, 0);
-                    break;
+                    msg_K20.sensor_id = 0x00; // 模拟一个传感器ID
+                    msg_K20.data_len = 3; // 3字节数据
+                    msg_K20.payload[0] = 0x01; // 命令：注册(0x00)/识别(0x01)
+                    msg_K20.payload[1] = 0x5A; // 结果：注册失败(0x03)/识别失败(0x00)，注册成功(0x00)/识别成功(0x01)
+                    msg_K20.payload[2] = 0x5A; // 用户ID 0x00//0x01/0x02...
+                    FR_SendPacket((FR_packet_t *)&msg_K20); 
 
                case MSG_FACE_RECOG_SUCCESS:// 人脸识别成功事件
                     /*切换用户前，保存旧用户的数据*/
                     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
-                    
                     /* 更新为新识别到的用户ID */
                     g_current_active_user_id = msg.data[2]; 
                     APP_LOG("[App] Recognized User ID: %d\n", g_current_active_user_id);
@@ -156,9 +157,15 @@ void app_task(void *pvParameters)
                 case MSG_FACE_ADD_FAIL:// 人脸添加失败事件
                     APP_LOG("[App] Event: Face add Fail\n");
                     break;
-
-                
-                // ... 处理其他事件 ...
+                case MSG_FACE_ADD_START:// 人脸添加开始事件
+                    APP_LOG("[App] Event: Face add Start\n");
+                     msg_K20.sensor_id = 0x00; // 模拟一个传感器ID
+                    msg_K20.data_len = 3; // 3字节数据
+                    msg_K20.payload[0] = 0x00; // 命令：注册(0x00)/识别(0x01)
+                    msg_K20.payload[1] = 0x5A; // 结果：注册失败(0x03)/识别失败(0x00)，注册成功(0x00)/识别成功(0x01)
+                    msg_K20.payload[2] = 0x5A; // 用户ID 0x00//0x01/0x02...
+                    FR_SendPacket((FR_packet_t *)&msg_K20); 
+                    break;
                 default:
                     break;
             }
@@ -470,6 +477,7 @@ void sensor_lcd_task(void *pvParameters)
                         lv_obj_clear_state(guider_ui.screen_3_btn_med3, LV_STATE_DISABLED);
                     }
                 }
+            
             }
             else if(g_ui_data[uid].screen_3_update_step==false)
             {
