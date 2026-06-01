@@ -91,7 +91,7 @@ void SystemData_Init_Load(void)
         }
         
         // 开机强制刷新该用户对应的整个 UI 标志位
-        g_ui_data[uid].update_flags = 0xFFFFFFFF; 
+        g_ui_data[uid].update_flags |= UI_FLAG_ALL_UI; 
     }
 
     // 5. 循环结束后，为后台业务逻辑变量 my_meds 动态赋予当前默认活跃用户（0号用户）的时间

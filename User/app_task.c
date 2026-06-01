@@ -341,7 +341,7 @@ void sensor_lcd_task(void *pvParameters)
 
         // 如果页面发生了切换，强制刷新所有数据，防止进入新页面后数据显示为空
         if (curr_scr != last_scr) {
-            g_ui_data[uid].update_flags = 0xFFFFFFFF;
+            g_ui_data[uid].update_flags |= UI_FLAG_ALL_UI;
             last_scr = curr_scr;
         }
 
@@ -552,8 +552,11 @@ void sensor_lcd_task(void *pvParameters)
                 }
             }
 
-             // 刷新完成后，清除更新标志
-            g_ui_data[uid].update_flags = 0; 
+             // 刷新完成后，清除已处理的 UI 刷新标志（保留上传标志给 usart_task 处理）
+            g_ui_data[uid].update_flags &= ~(UI_FLAG_HR_SPO2 | UI_FLAG_BODY_TEMP | UI_FLAG_ENV_TH | 
+                                            UI_FLAG_TIME | UI_FLAG_RECORDS | UI_FLAG_SCHEDULE | 
+                                            UI_FLAG_MED_STATUS | UI_FLAG_USER_STEP | UI_FLAG_WEATHER | 
+                                            UI_FLAG_CITY | UI_FLAG_TEMPERATURE); 
             xSemaphoreGive(xGuiMutex);
         }
         }
@@ -812,6 +815,25 @@ if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
                 g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
         }
+
+        /*上传用药时间到云端*/
+            if (g_ui_data[g_current_active_user_id].update_flags & UI_FLAG_SCHEDULE_UPLOAD) {
+                Packet_t med_pkt;
+                med_pkt.sensor_id = CMD_MED_SCHEDULE_UPLOAD;
+                med_pkt.user_id= g_current_active_user_id+1;// 用户 ID 从 1 开始
+                med_pkt.data_len = 9; // 3个时间点*2字节 + 3个药丸数量 = 9字节
+                for (int i = 0; i < MAX_SCHE; i++) {
+                    med_pkt.payload[i*2] = g_ui_data[g_current_active_user_id].meds_schedule[i].hour;// 药品时间
+                    med_pkt.payload[i*2 + 1] = g_ui_data[g_current_active_user_id].meds_schedule[i].min;// 药品时间
+                    med_pkt.payload[6 + i] = g_ui_data[g_current_active_user_id].meds_schedule[i].pill_count; // 药丸数量
+                }
+                RingBuffer_push(&g_ring_buffer, &med_pkt); // 推送到缓冲区由 WIFI 任务发送
+                
+                // 发送完清除上传标志
+                g_ui_data[g_current_active_user_id].update_flags &= ~UI_FLAG_SCHEDULE_UPLOAD;
+            }
+
+
         //设置看门狗事件位，表示 usart_task 正常运行
         xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_USART_TASK);
         vTaskDelay(pdMS_TO_TICKS(5));

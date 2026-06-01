@@ -17,6 +17,7 @@
 #define SENSOR_ID_MLX_TEMP_BOTH                 0x03 // MLX90614 同时发送环境温度和物体温度
 #define SENSOR_ID_HEART_RATE_SPO2               0x04 // 建议心率和血氧打包成一个结构发送
 #define CMD_UPLOAD_MISSED_MED                   0x20 // 新增：漏服记录上传
+#define CMD_MED_SCHEDULE_UPLOAD              0x21 // 新增：药物服用计划上传
 
 // 新版应用层数据包结构 (存入 RingBuffer 的纯净数据，不含帧头尾)
 typedef struct {

@@ -60,7 +60,7 @@ static void btn_ok_cb(lv_event_t * e)
     // 3. 核心步骤：调用 information.c 中的函数，将修改后的数据存入 W25Qxx Flash 中！
     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
 
-    // 4. 触发 UI 刷新和后台数组同步
+    // 4. 触发 UI 刷新（仅本地更新 Label，不触发上传）
     g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_SCHEDULE;
 
     // 5. 销毁弹窗，释放内存

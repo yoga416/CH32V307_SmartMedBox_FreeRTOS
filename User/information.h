@@ -24,6 +24,9 @@
 #define UI_FLAG_WEATHER       (1 << 9) // 天气信息更新
 #define UI_FLAG_CITY          (1 << 10) // 城市信息更新
 #define UI_FLAG_TEMPERATURE    (1 << 11) // 温度信息更新
+#define UI_FLAG_SCHEDULE_UPLOAD (1 << 12) // 用药方案上传云端标志位
+
+#define UI_FLAG_ALL_UI        (0xFFF)    // 包含所有 UI 刷新标志，但不包含上传标志位
 /*时间开始*/
 extern uint16_t current_time_virvual[6]; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 
