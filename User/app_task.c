@@ -801,6 +801,49 @@ if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
                 }
                 g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WIFI; // 触发 UI 刷新
             }
+
+            /* 云端用药方案主机同步 (CMD_MED_SCHEDULE_SET = 0x22) */
+            if (rx_packet.sensor_id == CMD_MED_SCHEDULE_SET && rx_packet.data_len == 10) 
+            {
+                uint8_t user_id = rx_packet.payload[0]; // 用户编号 (1, 2, 或 3)
+        
+                // 提取三组时间点及药量
+                uint8_t hour1  = rx_packet.payload[1];
+                uint8_t min1   = rx_packet.payload[2];
+                uint8_t count1 = rx_packet.payload[7]; 
+        
+                uint8_t hour2  = rx_packet.payload[3];
+                uint8_t min2   = rx_packet.payload[4];
+                uint8_t count2 = rx_packet.payload[8];
+        
+                uint8_t hour3  = rx_packet.payload[5];
+                uint8_t min3   = rx_packet.payload[6];
+                uint8_t count3 = rx_packet.payload[9];
+
+                APP_LOG("收到云端同步: 用户%d, 计划: %02d:%02d(%d颗), %02d:%02d(%d颗), %02d:%02d(%d颗)\r\n",
+                        user_id, hour1, min1, count1, hour2, min2, count2, hour3, min3, count3);
+            
+                /*根据id来更新用药计划*/
+                if (user_id > 0 && user_id <= 3) {
+                    // 更新对应用户的时间和药量
+                    g_ui_data[user_id - 1].meds_schedule[0].hour = hour1;
+                    g_ui_data[user_id - 1].meds_schedule[0].min = min1;
+                    g_ui_data[user_id - 1].meds_schedule[0].pill_count = count1;
+
+                    g_ui_data[user_id - 1].meds_schedule[1].hour = hour2;
+                    g_ui_data[user_id - 1].meds_schedule[1].min = min2;
+                    g_ui_data[user_id - 1].meds_schedule[1].pill_count = count2;
+
+                    g_ui_data[user_id - 1].meds_schedule[2].hour = hour3;
+                    g_ui_data[user_id - 1].meds_schedule[2].min = min3;
+                    g_ui_data[user_id - 1].meds_schedule[2].pill_count = count3;
+                    // 设置更新标志，触发 UI 刷新
+                    g_ui_data[user_id - 1].update_flags |= (UI_FLAG_SCHEDULE | UI_FLAG_MED_STATUS);
+                    /*保存在Flash中*/
+                    SystemData_Save_To_Flash_ByUser(user_id - 1);
+                }
+            }
+
         }
        // ==========================================
         // 3. 独立的心跳超时检测逻辑 (放在接收 if 块的外面)
@@ -832,7 +875,6 @@ if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
                 // 发送完清除上传标志
                 g_ui_data[g_current_active_user_id].update_flags &= ~UI_FLAG_SCHEDULE_UPLOAD;
             }
-
 
         //设置看门狗事件位，表示 usart_task 正常运行
         xEventGroupSetBits(xWatchdogEventGroup, WDOG_BIT_USART_TASK);

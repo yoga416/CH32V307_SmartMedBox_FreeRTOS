@@ -106,6 +106,7 @@ typedef struct {
 #define CMD_WEATHER_SYNC 0x11
 #define CMD_LOCATION_SYNC 0x12
 #define CMD_WIFI_STATUS_UPDATE 0x13
+#define CMD_MED_SCHEDULE_SET 0x22// 用药方案设置（ESP32 -> STM32）
 
 /* 人脸识别结果数据帧结构 */
 /* 数据位 */
