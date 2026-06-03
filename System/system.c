@@ -322,9 +322,21 @@ uint8_t g_peripheral_init(void)
     // 设置显示字符串的颜色参数并在 LCD 上显示测试信息
     POINT_COLOR = BLACK;
     BACK_COLOR = WHITE;
-    LCD_ShowString(50, 50, (u8*)"WANG YUE TING IS HERE!", BLUE, WHITE, 16);
-    Delay_Ms(1000);
-    
+    //LCD_ShowString(50, 50, (u8*)"WANG YUE TING IS HERE!", BLUE, WHITE, 16);
+  /* 标题 */
+LCD_ShowString(60, 40, (u8 *)"SMART MEDICINE BOX", BLACK, WHITE, 24);
+
+/* 分割线 */
+LCD_DrawLine(20, 80, 300, 80);
+
+/* 项目信息 */
+LCD_ShowString(80, 100, (u8 *)"Health Care System", BLACK, WHITE, 16);
+LCD_ShowString(100, 130, (u8 *)"Version 1.0", BLACK, WHITE, 16);
+
+/* 启动提示 */
+LCD_ShowString(70, 180, (u8 *)"System Starting...", RED, WHITE, 16);
+
+Delay_Ms(1000); // 显示 2 秒，观察效果
     // 初始化触摸屏的 I2C 接口
     CTP_IIC_Init();
     

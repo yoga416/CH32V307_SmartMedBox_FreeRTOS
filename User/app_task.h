@@ -107,8 +107,11 @@ typedef struct {
 #define CMD_LOCATION_SYNC 0x12
 #define CMD_WIFI_STATUS_UPDATE 0x13
 #define CMD_MED_SCHEDULE_SET 0x22// 用药方案设置（ESP32 -> STM32）
-
-/* 人脸识别结果数据帧结构 */
+#define CMD_LED_STATUS_SET 0x23 // LED 开关设置（云端 -> 主机）
+#define CMD_BUZZER_STATUS_SET 0x24 // 蜂鸣器开关设置（云端 -> 主机）
+#define CMD_TH_THRESHOLD_SET 0x25  // 温湿度阈值设置（云端 -> 主机）
+#define CMD_MED_SCHEDULE_UPLOAD 0x31 // 用药方案上传（STM32 -> ESP32）
+#define CMD_MISSED_MED_RECORD_UPLOAD 0x32 // 漏服记录上传（STM32 -> ESP32）
 /* 数据位 */
 /* payload[0]: 命令 (0：注册，1：识别) */
 /* payload[1]: 识别结果 (0：失败, 1：成功)/注册结果（2：成功，3：失败） */

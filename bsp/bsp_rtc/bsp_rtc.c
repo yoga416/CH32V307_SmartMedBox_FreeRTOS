@@ -228,3 +228,103 @@ void Test_Key_Init(void)
     NVIC_Init(&NVIC_InitStructure);
 }
 #endif
+
+
+/*LED*/
+void LED_Init(void) // LED 初始化函数（测试用）
+{
+    GPIO_InitTypeDef GPIO_InitStructure = {0};
+
+    // 开启 GPIOB, GPIOC, GPIOD, GPIOE 时钟
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC | 
+                           RCC_APB2Periph_GPIOD | RCC_APB2Periph_GPIOE, ENABLE);
+
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+
+    // 初始化 GPIOC 上的 LED (PC2, PC3, PC4)
+    GPIO_InitStructure.GPIO_Pin = LED1_PIN | LED2_PIN | LED3_PIN;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+
+    // 初始化 GPIOB 上的 LED (PB2)
+    GPIO_InitStructure.GPIO_Pin = LED4_PIN;
+    GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+    // 初始化 GPIOE 上的 LED (PE8, PE10, PE12, PE14)
+    GPIO_InitStructure.GPIO_Pin = LED5_PIN | LED6_PIN | LED7_PIN | LED8_PIN;
+    GPIO_Init(GPIOE, &GPIO_InitStructure);
+
+    // 初始化 GPIOD 上的 LED (PD10)
+    GPIO_InitStructure.GPIO_Pin = LED9_PIN;
+    GPIO_Init(GPIOD, &GPIO_InitStructure);
+
+    // 默认关闭所有 LED (高电平熄灭)
+    GPIO_SetBits(LED1_PORT, LED1_PIN | LED2_PIN | LED3_PIN);
+    GPIO_SetBits(LED4_PORT, LED4_PIN);
+    GPIO_SetBits(LED5_PORT, LED5_PIN | LED6_PIN | LED7_PIN | LED8_PIN);
+    GPIO_SetBits(LED9_PORT, LED9_PIN);
+}
+void LED_Toggle(uint8_t index,uint8_t blink)// LED 翻转函数(blink: 闪烁周期，单位为 100ms，例如 5 就是 500ms)
+{
+    GPIO_TypeDef* port;
+    uint16_t pin;
+    switch (index) {
+        case 1: port = LED1_PORT; pin = LED1_PIN; break;
+        case 2: port = LED2_PORT; pin = LED2_PIN; break;
+        case 3: port = LED3_PORT; pin = LED3_PIN; break;
+        case 4: port = LED4_PORT; pin = LED4_PIN; break;
+        case 5: port = LED5_PORT; pin = LED5_PIN; break;
+        case 6: port = LED6_PORT; pin = LED6_PIN; break;
+        case 7: port = LED7_PORT; pin = LED7_PIN; break;
+        case 8: port = LED8_PORT; pin = LED8_PIN; break;
+        case 9: port = LED9_PORT; pin = LED9_PIN; break;
+        default: return; // 无效索引
+    }
+    GPIO_WriteBit(port, pin, Bit_RESET); // 点亮
+    Delay_Ms(blink * 100); // 延时
+    GPIO_WriteBit(port, pin, Bit_SET); // 熄灭
+}
+void LED_STATE(uint8_t index, uint8_t state) // LED 点亮函数(state: 0 关闭，1 打开)
+{
+    GPIO_TypeDef* port;
+    uint16_t pin;
+    switch (index) {
+        case 1: port = LED1_PORT; pin = LED1_PIN; break;
+        case 2: port = LED2_PORT; pin = LED2_PIN; break;
+        case 3: port = LED3_PORT; pin = LED3_PIN; break;
+        case 4: port = LED4_PORT; pin = LED4_PIN; break;
+        case 5: port = LED5_PORT; pin = LED5_PIN; break;
+        case 6: port = LED6_PORT; pin = LED6_PIN; break;
+        case 7: port = LED7_PORT; pin = LED7_PIN; break;
+        case 8: port = LED8_PORT; pin = LED8_PIN; break;
+        case 9: port = LED9_PORT; pin = LED9_PIN; break;
+        default: return; // 无效索引
+    }
+    // state: 1 打开（低电平），0 关闭（高电平）
+    GPIO_WriteBit(port, pin, state ? Bit_RESET : Bit_SET);
+}
+
+/*BAZZER*/
+void Buzzer_Init(void)// 蜂鸣器初始化函数（测试用）
+{
+    GPIO_InitTypeDef GPIO_InitStructure = {0};
+
+    // 1. 开启 GPIOD 时钟
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOD, ENABLE);
+
+    // 2. 配置 PD11 为推挽输出（假设这位连接了蜂鸣器）
+    GPIO_InitStructure.GPIO_Pin = BUZZER_PIN;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(BUZZER_GPIO_PORT, &GPIO_InitStructure);
+}
+void Buzzer_Toggle(uint8_t blink) // 蜂鸣器翻转函数(blink: 闪烁周期，单位为 100ms，例如 5 就是 500ms)
+{
+    GPIO_WriteBit(BUZZER_GPIO_PORT, BUZZER_PIN, Bit_RESET); // 打开
+    Delay_Ms(blink * 100); // 延时
+    GPIO_WriteBit(BUZZER_GPIO_PORT, BUZZER_PIN, Bit_SET); // 关闭
+}
+void Buzzer_STATE(uint8_t state) // 蜂鸣器开启函数(state: 0 关闭，1 打开)
+{
+    GPIO_WriteBit(BUZZER_GPIO_PORT, BUZZER_PIN, state ? Bit_SET : Bit_RESET);
+}

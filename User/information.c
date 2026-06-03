@@ -22,6 +22,10 @@ AlarmSche my_meds[3] = {
 };
 uint16_t current_time_virvual[6]={2026,5,28,0,0,50}; // 0-年高8位，1-年低8位，2-月，3-日，4-时，5-分
 
+/* 全局硬件环境阈值 (由云端统一控制，不随用户切换而改变) */
+uint16_t g_box_temp_threshold = 4000; 
+uint16_t g_box_humi_threshold = 8000;
+
 void SystemData_Init_Load(void) 
 {
     UI_DisplayData_t temp_data;
@@ -83,6 +87,10 @@ void SystemData_Init_Load(void)
                 g_ui_data[uid].meds_schedule[i].min  = my_meds[i].min;
                 g_ui_data[uid].meds_schedule[i].pill_count = 1;
             }
+            
+            // 设定默认阈值 (40.00℃ 和 80.00%)
+            g_ui_data[uid].temp_threshold = 4000;
+            g_ui_data[uid].humi_threshold = 8000;
 
             // 擦除该用户独立的 4KB 扇区并写入初始数据
             W25Q_SectorErase(user_base_addr);
@@ -94,7 +102,11 @@ void SystemData_Init_Load(void)
         g_ui_data[uid].update_flags |= UI_FLAG_ALL_UI; 
     }
 
-    // 5. 循环结束后，为后台业务逻辑变量 my_meds 动态赋予当前默认活跃用户（0号用户）的时间
+    // 5. 加载全局硬件阈值 (以 0 号用户存储的数据为准)
+    g_box_temp_threshold = g_ui_data[0].temp_threshold;
+    g_box_humi_threshold = g_ui_data[0].humi_threshold;
+
+    // 6. 循环结束后，为后台业务逻辑变量 my_meds 动态赋予当前默认活跃用户（0号用户）的时间
     memcpy(my_meds, g_ui_data[g_current_active_user_id].meds_schedule, sizeof(my_meds));
 }
 
@@ -217,14 +229,14 @@ void check_missed_doses(void){
 
     static uint8_t recorded_minute[3] = {0xFF, 0xFF, 0xFF};
     int idx = -1;
-
-    if(current_time.hour == my_meds[0].hour && current_time.min == my_meds[0].min ) {
+    /*在吃药时间点后三十分钟时检查是否吃药*/
+    if(current_time.hour == my_meds[0].hour && current_time.min == my_meds[0].min+30) {
         idx = 0;
     } 
-    else if(current_time.hour == my_meds[1].hour && current_time.min == my_meds[1].min) {
+    else if(current_time.hour == my_meds[1].hour && current_time.min == my_meds[1].min+30) {
         idx = 1;
     } 
-    else if(current_time.hour == my_meds[2].hour && current_time.min == my_meds[2].min) {
+    else if(current_time.hour == my_meds[2].hour && current_time.min == my_meds[2].min+30) {
         idx = 2;
     }
 
@@ -248,6 +260,9 @@ void check_missed_doses(void){
                                    current_time.year - 2000, current_time.month, current_time.day, 
                                    current_time.hour, current_time.min, current_time.sec);
 
+        /* 触发蜂鸣器响 10 秒 */
+        Trigger_Buzzer(10000);
+
         APP_LOG("SEND MEDICATION REMINDER: Missed dose #%d at %02d:%02d on %02d-%02d\n", idx + 1,
              current_time.hour, current_time.min, current_time.month, current_time.day);
         // char sms_text[64];
@@ -256,4 +271,74 @@ void check_missed_doses(void){
 
     }
     SystemData_Save_To_Flash_ByUser(g_current_active_user_id);
+}
+
+/**
+ * @brief  更新所有用户的用药提示 LED 状态
+ *         逻辑：若云端使能开启(led_status=1)，则在到达用药时间后 30 分钟内且未服用时点亮对应 LED
+ */
+void Update_Medication_LEDs(void) 
+{
+    RTC_TimeTypeDef current_time;
+    BSP_RTC_GetDateTime(&current_time);
+
+    for (int uid = 0; uid < MAX_USER; uid++) 
+    {
+        for (int m = 0; m < MAX_SCHE; m++) 
+        {
+            uint8_t led_index = uid * 3 + m + 1; // LED 1-9
+
+            // 判定条件：
+            // 1. 云端总开关开启 (led_status == 1)
+            // 2. 到达指定小时
+            // 3. 当前分钟在 [计划分钟+1, 计划分钟+30] 之间
+            // 4. 用户尚未标记为已服用 (meds_completed == 0)
+            if (g_ui_data[uid].led_status &&
+                current_time.hour == g_ui_data[uid].meds_schedule[m].hour &&
+                current_time.min > g_ui_data[uid].meds_schedule[m].min &&
+                current_time.min < g_ui_data[uid].meds_schedule[m].min + 30 &&
+                g_ui_data[uid].meds_completed[m] == 0) 
+            {
+                LED_STATE(led_index, 1);
+            } 
+            else 
+            {
+                // 其他情况，包括已被云端禁用、时间不匹配或已服药，均熄灭
+                LED_STATE(led_index, 0);
+            }
+        }
+    }
+}
+
+static uint32_t buzzer_timer_ms = 0;
+
+/**
+ * @brief  手动触发蜂鸣器
+ * @param  duration_ms: 持续时间（毫秒）
+ */
+void Trigger_Buzzer(uint16_t duration_ms) 
+{
+    // 如果云端使能开启且当前没有正在响，则触发
+    if (g_ui_data[g_current_active_user_id].buzzer_status) {
+        buzzer_timer_ms = duration_ms;
+    }
+}
+
+/**
+ * @brief  更新用药提示蜂鸣器状态
+ *         逻辑：基于倒计时控制，发生漏服或温湿度超标时响 10 秒
+ */
+void Buzzer_Control(void)
+{
+    // 如果倒计时大于 0，保持鸣叫并递减
+    if (buzzer_timer_ms > 0) {
+        Buzzer_STATE(1);
+        if (buzzer_timer_ms >= 500) {
+            buzzer_timer_ms -= 500; // 假设调用周期为 500ms
+        } else {
+            buzzer_timer_ms = 0;
+        }
+    } else {
+        Buzzer_STATE(0);
+    }
 }

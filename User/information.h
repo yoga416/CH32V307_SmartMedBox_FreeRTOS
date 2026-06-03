@@ -111,11 +111,25 @@ typedef struct {
     uint32_t update_flags; 
 
     bool screen_3_update_step; // 0/1，控制吃药界面分步刷新
-                      
+
+    /*LED开启选择*/
+    bool led_status; // 全部LED的开关状态
+
+    /*蜂鸣器开启选择*/
+    bool buzzer_status; // 蜂鸣器的开关状态
+
+    /*温湿度阈值 (保存于 Flash)*/
+    uint16_t temp_threshold; // 温度阈值 (单位 0.01℃)
+    uint16_t humi_threshold; // 湿度阈值 (单位 0.01%)
+
 } UI_DisplayData_t;
 
 extern UI_DisplayData_t g_ui_data[MAX_USER];
 extern uint8_t g_current_active_user_id; // 记录当前操作的用户 ID
+
+extern uint16_t g_box_temp_threshold;
+extern uint16_t g_box_humi_threshold;
+
 // ==========================================
 // 接口函数声明
 // =========================================
@@ -142,5 +156,12 @@ void Add_History_EnvTH(uint16_t temp, uint16_t humi);
 
 /* 检查漏服记录 */
 void check_missed_doses(void);
+
+/* 更新用药提示 LED 状态 */
+void Update_Medication_LEDs(void);
+
+/* bazzer */
+void Buzzer_Control(void);
+void Trigger_Buzzer(uint16_t duration_ms);
 
 #endif // __INFORMATION_H

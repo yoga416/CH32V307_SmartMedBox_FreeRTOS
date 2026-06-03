@@ -281,10 +281,13 @@ void sensor_lcd_task(void *pvParameters)
         // 1. 触摸屏扫描
         FT6336_Scan();
 
-        // 每10秒检查一次是否漏服
+        // 每1秒检查一次是否漏服
         current_tick = xTaskGetTickCount();
-        if ((current_tick - last_miss_check_tick) >= pdMS_TO_TICKS(1000)) {
+        if ((current_tick - last_miss_check_tick) >= pdMS_TO_TICKS(500)) {
             check_missed_doses();
+            Update_Medication_LEDs(); // 根据最新的漏服检查结果更新 LED 状态
+            Buzzer_Control();         // 更新用药提示蜂鸣器
+
             last_miss_check_tick = current_tick;
         }
        
@@ -315,6 +318,11 @@ void sensor_lcd_task(void *pvParameters)
                     uint16_t et = (sensor_lcd_packet.data[0] << 8) | sensor_lcd_packet.data[1];
                     uint16_t eh = (sensor_lcd_packet.data[2] << 8) | sensor_lcd_packet.data[3];
                     Add_History_EnvTH(et, eh);
+
+                    // 【更正】使用全局固定的硬件阈值进行监测 (不随用户切换改变)
+                    if (et > g_box_temp_threshold || eh > g_box_humi_threshold) {
+                        Trigger_Buzzer(10000); 
+                    }
                     break;
                 }
             }
@@ -696,8 +704,8 @@ void usart_task(void *pvParameters)
 
                 TickType_t current_tick = xTaskGetTickCount();
                 
-                // 每200秒校准一次误差 (首次或者间隔超过200,000ms)
-                if (is_first_sync || (current_tick - last_sync_tick) >= pdMS_TO_TICKS(20000))
+                // 每0.5秒校准一次误差 
+                if (is_first_sync || (current_tick - last_sync_tick) >= pdMS_TO_TICKS(500))
                 {
                     // 修改 RTC 时间
                     BSP_RTC_ModifyTime(2000 + year, month, day, hour, minute, second);
@@ -735,9 +743,6 @@ if (rx_packet.sensor_id == CMD_LOCATION_SYNC && rx_packet.data_len >= 2)
     strncpy(g_ui_data[g_current_active_user_id].city_name, english_city, 
             sizeof(g_ui_data[g_current_active_user_id].city_name) - 1);
     g_ui_data[g_current_active_user_id].city_name[sizeof(g_ui_data[g_current_active_user_id].city_name) - 1] = '\0';
-    
-    APP_LOG("[Location Sync] City updated to: %s\n", 
-    g_ui_data[g_current_active_user_id].city_name);
     
     g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_CITY;
 }
@@ -782,9 +787,7 @@ if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
     
     g_ui_data[g_current_active_user_id].weather_temp = temperature;
     g_ui_data[g_current_active_user_id].update_flags |= UI_FLAG_WEATHER;
-    
-    APP_LOG("[Weather Sync] Weather: %s (code=%d), Temp: %d°C\n", 
-            g_ui_data[g_current_active_user_id].weather, weather_code, temperature);
+
 }
 
             /*wifi状态更新*/
@@ -842,6 +845,53 @@ if (rx_packet.sensor_id == CMD_WEATHER_SYNC && rx_packet.data_len >= 2)
                     /*保存在Flash中*/
                     SystemData_Save_To_Flash_ByUser(user_id - 1);
                 }
+            }
+
+            /* 云端 LED 开关同步 (CMD_LED_STATUS_SET = 0x23) */
+            if (rx_packet.sensor_id == CMD_LED_STATUS_SET && rx_packet.data_len >=2)
+            {
+                
+                uint8_t status  = rx_packet.payload[1]; // 0: 关闭, 1: 开启
+                for (int i=0;i<3;i++) {
+                    g_ui_data[i].led_status = (status != 0);
+                    /* 保存在 Flash 中 */
+                    SystemData_Save_To_Flash_ByUser(i);
+                }
+                APP_LOG("set led status: %s\r\n", status ? "on" : "off");
+            }
+
+            /* 云端 蜂鸣器 开关同步 (CMD_BUZZER_STATUS_SET = 0x24) */
+            if (rx_packet.sensor_id == CMD_BUZZER_STATUS_SET && rx_packet.data_len >= 2)
+            {
+                uint8_t status  = rx_packet.payload[1]; // 0: 关闭, 1: 开启
+
+                for (int i=0;i<3;i++) {
+                    g_ui_data[i].buzzer_status = (status != 0);
+                    /* 保存在 Flash 中 */
+                    SystemData_Save_To_Flash_ByUser(i);
+                }
+                APP_LOG("set buzzer status: %s\r\n", status ? "on" : "off");
+            }
+
+            /* 云端 温湿度阈值同步 (CMD_TH_THRESHOLD_SET = 0x25) */
+            if (rx_packet.sensor_id == CMD_TH_THRESHOLD_SET && rx_packet.data_len >= 5)
+            {
+                uint16_t temp_th = (rx_packet.payload[1] << 8) | rx_packet.payload[2];
+                uint16_t humi_th = (rx_packet.payload[3] << 8) | rx_packet.payload[4];
+
+                // 同步更新全局变量
+                g_box_temp_threshold = temp_th;
+                g_box_humi_threshold = humi_th;
+
+                // 为了持久化，将该阈值同步保存到所有用户的数据结构中（确保切换用户开机后一致）
+                for(int i = 0; i < MAX_USER; i++) {
+                    g_ui_data[i].temp_threshold = temp_th;
+                    g_ui_data[i].humi_threshold = humi_th;
+                    SystemData_Save_To_Flash_ByUser(i);
+                }
+
+                APP_LOG("收到全局 阈值设置: Temp: %d.%02d, Humi: %d.%02d\r\n", 
+                        temp_th/100, temp_th%100, humi_th/100, humi_th%100);
             }
 
         }
@@ -929,7 +979,7 @@ void check_medication_time(void) {
         else if (diff_mins < -12 * 60) diff_mins += 24 * 60;
         
         //APP_LOG("[App] Checking med #%d: target time %02d:%02d, diff_mins = %d\n", i+1, my_meds[i].hour, my_meds[i].min, diff_m
-        if (diff_mins >= -10 &&diff_mins <= 0) { // 当前时间在吃药时间的前10分钟到吃药时间之间
+        if (diff_mins >= -30 &&diff_mins < 30) { // 当前时间在吃药时间的前后30分钟内
             is_time_to_eat = 1; 
             active_med_idx = i; // 把当前触发的这顿药的编号记下来
             break; 
